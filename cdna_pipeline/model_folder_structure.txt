@@ -1,0 +1,16 @@
+cdan_pipeline/
+│
+├── main.py
+├── datasets.py
+├── test.py ---not necessary
+├── models/
+│   ├── __init__.py
+│   ├── feature_extractor.py 
+│   ├── classifier.py
+│   └── cdan_module.py
+│
+└── utils/
+   ├── transforms.py
+   ├── losses.py
+   ├── metrics.py
+   └── trainer.py
