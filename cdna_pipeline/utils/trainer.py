@@ -38,9 +38,6 @@ class Trainer:
         return checkpoint['epoch'], checkpoint.get('stats', {})
 
     def train_step(self, train_batch, target_batch, lambda_=1.0):
-        """
-        Perform one training step (train domain + adaptation domain)
-        """
         self.F.train(); self.C.train(); self.D.train()
 
         imgs_train = train_batch['image'].to(self.device)
@@ -48,27 +45,34 @@ class Trainer:
         imgs_target = target_batch['image'].to(self.device)
 
         # === Feature extraction ===
-        f_train = self.F(imgs_train)
+        f_train = self.F(imgs_train)   # wrapper ensures (B, D)
         f_target = self.F(imgs_target)
-        if f_train.dim() == 4:
-            f_train = f_train.squeeze()
-            f_target = f_target.squeeze()
+
+        # Safety: if still sequence-like, pool
+        if f_train.dim() == 3:
+            f_train = f_train.mean(dim=1)
+        if f_target.dim() == 3:
+            f_target = f_target.mean(dim=1)
 
         # === Classification loss ===
         preds = self.C(f_train)
         loss_cls = self.losses["classification"](preds, labels_train)
         _, predicted = preds.max(1)
         correct = predicted.eq(labels_train).sum().item()
-        train_acc = 100.0 * correct / labels_train.size(0)
+        train_acc = 100.0 * correct / max(1, labels_train.size(0))
 
         # === Domain loss ===
         f_all = torch.cat([f_train, f_target], dim=0)
         d_labels = torch.cat([
             torch.zeros(f_train.size(0), device=self.device),
             torch.ones(f_target.size(0), device=self.device)
-        ], dim=0)
+        ], dim=0).float()
 
         d_preds = self.D(f_all, lambda_).squeeze()
+        # ensure shape matches
+        if d_preds.dim() == 0:
+            d_preds = d_preds.unsqueeze(0)
+
         loss_dom = self.losses["domain"](d_preds, d_labels)
 
         # === Backprop ===
