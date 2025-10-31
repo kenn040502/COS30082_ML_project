@@ -23,6 +23,8 @@ def evaluate_per_class(F, C, loader, device, class_names=None):
     C.eval()
     correct_per_class = defaultdict(int)
     total_per_class = defaultdict(int)
+    total_correct = 0
+    total_samples = 0
 
     for batch in loader:
         images = batch['image'].to(device)
@@ -30,6 +32,9 @@ def evaluate_per_class(F, C, loader, device, class_names=None):
         feats = F(images)
         outputs = C(feats)
         preds = torch.argmax(outputs, dim=1)
+
+        total_correct += (preds == labels).sum().item()
+        total_samples += labels.size(0)
 
         for label, pred in zip(labels.cpu().numpy(), preds.cpu().numpy()):
             total_per_class[label] += 1
@@ -44,8 +49,12 @@ def evaluate_per_class(F, C, loader, device, class_names=None):
         print(f"{cname:<25} | Acc: {acc:6.2f}% | Samples: {total_per_class[c]}")
 
     print("-" * 50)
-    print(f"📊 Mean per-class accuracy: {np.mean(all_acc):.2f}%")
-    return all_acc
+    mean_acc = np.mean(all_acc)
+    overall_acc = 100.0 * total_correct / total_samples
+    print(f"📊 Mean per-class accuracy: {mean_acc:.2f}%")
+    print(f"🎯 Overall test accuracy:   {overall_acc:.2f}%")
+
+    return all_acc, overall_acc
 
 
 def main():
@@ -56,7 +65,7 @@ def main():
 
     # ===== Choose backbone =====
     # Options: "resnet50", "dinov2"
-    backbone = "dinov2"  # change back to "resnet50" if you want baseline
+    backbone = "resnet50"  # change back to "resnet50" if you want baseline
 
     # ===== Dataset and transforms =====
     data_root = "./AML_project_herbarium_dataset"
@@ -73,7 +82,7 @@ def main():
     test_dataset = PlantTestDataset(data_root, transform=test_tf)
 
     # dataloaders (lower batch_size for DINOv2 to avoid OOM)
-    batch_size = 4 if "resnet50" in backbone else 2
+    batch_size = 16 if "resnet50" in backbone else 2
     num_workers = 2
 
     source_loader = DataLoader(source_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -150,19 +159,58 @@ def main():
         print("-" * 50)
 
     # =============== FINAL EVALUATION ===============
-    print("\n🎯 Final Validation Evaluation:")
+    print("\n🎯 Loading Best Model for Final Evaluation...")
+    best_ckpt_path = "checkpoints/best_model.pth"
+
+    if os.path.exists(best_ckpt_path):
+        checkpoint = torch.load(best_ckpt_path, map_location=device)
+        keys = list(checkpoint.keys())
+        print(f"🧩 Found checkpoint keys: {keys}")
+
+        # Flexible loading for both resnet50 and dinov2 checkpoints
+        if "F_state" in checkpoint and "C_state" in checkpoint:
+            F.load_state_dict(checkpoint["F_state"])
+            C.load_state_dict(checkpoint["C_state"])
+        elif "feature_extractor_state_dict" in checkpoint and "classifier_state_dict" in checkpoint:
+            F.load_state_dict(checkpoint["feature_extractor_state_dict"])
+            C.load_state_dict(checkpoint["classifier_state_dict"])
+        elif "model_state_dict" in checkpoint:
+            # In case trainer saves combined model
+            F.load_state_dict(checkpoint["model_state_dict"])
+        else:
+            raise KeyError(f"❌ Unrecognized checkpoint format. Keys found: {keys}")
+
+        print(f"✅ Loaded best model from epoch {checkpoint.get('epoch', '?')} with Val Acc = {best_accuracy:.2f}%")
+    else:
+        print("⚠️ No best_model.pth found, using final epoch weights.")
+
+
+    F.eval(); C.eval()
+
+    print("\n🌿 Validation Evaluation (Best Model):")
     val_top1, val_top5 = evaluate_model(F, C, val_loader, device)
     print(f"🌿 Validation Top-1: {val_top1:.2f}%, Top-5: {val_top5:.2f}%")
 
     print("\n🌳 Test Evaluation (Photo Domain):")
-    F.eval(); C.eval()
-    per_class_acc = evaluate_per_class(F, C, test_loader, device, class_names)
+    per_class_acc, test_acc = evaluate_per_class(F, C, test_loader, device, class_names)
+    print(f"\n🎯 Overall Test Accuracy: {test_acc:.2f}%")
+
 
     print("\n🐢 Lowest 10 performing classes:")
     sorted_acc = sorted(list(enumerate(per_class_acc)), key=lambda x: x[1])
     for i, acc in sorted_acc[:10]:
         cname = class_names[i] if class_names else f"Class {i}"
         print(f"{cname:<25} | {acc:6.2f}%")
+
+    print(f"\n🏆 Best Val Accuracy: {best_accuracy:.2f}%")
+
+    print(f"🌿 Validation Top-1: {val_top1:.2f}%, Top-5: {val_top5:.2f}%")
+
+    print("\n🌳 Test Evaluation (Photo Domain):")
+    F.eval(); C.eval()
+    per_class_acc = evaluate_per_class(F, C, test_loader, device, class_names)
+
+
 
     print(f"\n🏆 Best Val Accuracy: {best_accuracy:.2f}%")
 

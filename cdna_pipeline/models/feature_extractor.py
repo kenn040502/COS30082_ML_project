@@ -77,8 +77,21 @@ def get_backbone(name="dinov2", pretrained=True):
         layers = list(model.children())[:-1]
         feature_extractor = nn.Sequential(*layers)
         feature_dim = 2048
+
+        class ResNetWrapper(nn.Module):
+            def __init__(self, extractor):
+                super().__init__()
+                self.extractor = extractor
+
+            def forward(self, x):
+                x = self.extractor(x)          # [B, 2048, 1, 1]
+                x = torch.flatten(x, 1)        # -> [B, 2048]
+                return x
+
+        wrapper = ResNetWrapper(feature_extractor)
         print("✅ ResNet50 backbone ready. Feature dim = 2048")
-        return feature_extractor, feature_dim
+        return wrapper, feature_dim
+
 
     else:
         raise NotImplementedError(f"Backbone '{name}' not supported.")
