@@ -108,76 +108,51 @@ class PlantTestDataset(Dataset):
     def __init__(self, data_root, transform=None):
         self.data_root = data_root
         self.transform = transform
-
-        test_path = os.path.join(data_root, 'test')
         self.samples = []
-        for img_file in os.listdir(test_path):
-            if img_file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                img_path = os.path.join('test', img_file)
-                self.samples.append(img_path)
 
-        # Load ground truth (image_name -> original_class_id)
-        gt_file = os.path.join(data_root, 'list', 'groundtruth.txt')
-        gt_map = {}
-        if os.path.exists(gt_file):
-            with open(gt_file, 'r') as f:
-                for line in f:
-                    parts = line.strip().split()
-                    if len(parts) >= 2:
-                        img_name = parts[0]  # e.g. "test/12345.jpg" or "12345.jpg" depending on file
-                        cls = parts[-1]
-                        # store the file name (basename) as key for safer matching
-                        gt_map[os.path.basename(img_name)] = cls
+        # groundtruth file
+        gt_path = os.path.join(data_root, "list", "groundtruth.txt")
+        if not os.path.exists(gt_path):
+            raise FileNotFoundError(f"Groundtruth file not found: {gt_path}")
 
-        # Map ground-truth original class -> global index (shared classes)
-        self.labels = {}
-        # Must have been created by PlantFolderDataset earlier in the run
-        global_map = getattr(PlantFolderDataset, 'global_class_to_idx', None)
-        if global_map is None:
-            raise RuntimeError("global_class_to_idx is not set. Initialize PlantFolderDataset first.")
+        # must have mapping from training set
+        if not hasattr(PlantFolderDataset, 'global_idx_to_class'):
+            raise RuntimeError("❌ global_idx_to_class not found. Initialize PlantFolderDataset first.")
 
-        # Build labels mapping for test images, filter out images whose class not in shared mapping
-        valid_samples = []
-        for img_path in self.samples:
-            basename = os.path.basename(img_path)
-            orig_cls = gt_map.get(basename, None)
-            if orig_cls is None:
-                # try full path key if gt uses path
-                orig_cls = gt_map.get(img_path, None)
-            if orig_cls is None:
-                # no ground truth — mark as -1 (if you want to keep unlabeled test)
-                continue
+        # reverse mapping: class_name → internal idx
+        class_name_to_idx = PlantFolderDataset.global_class_to_idx
+        idx_to_name = PlantFolderDataset.global_idx_to_class
 
-            # orig_cls could be numeric id string; convert to int then to class name if necessary.
-            # Your original train folder uses class folder names (e.g. '106461'), so the groundtruth likely uses the same numeric ids.
-            orig_cls_key = str(int(orig_cls))
-            # Only include if that original class exists in global_map
-            if orig_cls_key in global_map:
-                mapped = global_map[orig_cls_key]
-                self.labels[basename] = mapped
-                valid_samples.append(img_path)
-            else:
-                # not in shared mapping -> exclude from evaluation
-                continue
+        valid_class_names = set(class_name_to_idx.keys())
 
-        self.samples = valid_samples
-        print(f"📊 Test samples (after mapping/filtering): {len(self.samples)}")
+        skipped = 0
+        with open(gt_path, "r") as f:
+            for line in f:
+                path, raw_label = line.strip().split()
+                img_path = os.path.join(data_root, path)
+                raw_label = str(raw_label)  # your folder names are likely string IDs
+
+                # skip if label not part of shared class list
+                if raw_label not in valid_class_names:
+                    skipped += 1
+                    continue
+
+                label = class_name_to_idx[raw_label]
+
+                if os.path.exists(img_path):
+                    self.samples.append((img_path, label))
+                else:
+                    print(f"⚠️ Warning: image {img_path} not found, skipping.")
+
+        print(f"✅ Loaded {len(self.samples)} valid test samples "
+              f"(skipped {skipped} unmatched IDs from groundtruth.txt)")
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        img_path = self.samples[idx]
-        full_img_path = os.path.join(self.data_root, img_path)
-
-        image = Image.open(full_img_path).convert('RGB')
+        img_path, label = self.samples[idx]
+        image = Image.open(img_path).convert('RGB')
         if self.transform:
             image = self.transform(image)
-
-        basename = os.path.basename(img_path)
-        label = self.labels.get(basename, -1)
-        return {
-            'image': image,
-            'label': torch.tensor(label, dtype=torch.long),
-            'domain': 1
-        }
+        return {'image': image, 'label': torch.tensor(label, dtype=torch.long)}
