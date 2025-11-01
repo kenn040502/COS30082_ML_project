@@ -45,30 +45,26 @@ def get_backbone(name="dinov2", pretrained=True):
         model_name = "vit_base_patch14_reg4_dinov2.lvd142m"
         base = timm.create_model(model_name, pretrained=pretrained)
 
-        # Keep classifier head but we'll use forward_features/pooling
-        # Determine feature dim robustly
-        # Try to get an attribute that tells features
-        if hasattr(base, "num_features") and base.num_features is not None:
-            feature_dim = base.num_features
-        elif hasattr(base, "embed_dim"):
-            feature_dim = base.embed_dim
-        else:
-            # compute via dummy pass (on CPU to be safe)
-            base.eval()
-            with torch.no_grad():
-                dummy = torch.randn(1, 3, 224, 224)
-                feat = base.forward_features(dummy) if hasattr(base, "forward_features") else base(dummy)
-                if isinstance(feat, tuple): feat = feat[0]
-                if feat.dim() == 3:
-                    feature_dim = feat.size(-1)
-                elif feat.dim() == 2:
-                    feature_dim = feat.size(1)
-                else:
-                    feature_dim = 768
+        # ===== Partial Fine-Tuning =====
+        # Unfreeze last 2 transformer blocks and norm
+        for name, param in base.named_parameters():
+            if "blocks.10" in name or "blocks.11" in name or "norm" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
-        wrapper = FeatureWrapper(base, pool_type="mean")
-        print(f"✅ Hugging Face DINOv2 backbone loaded. Feature dim = {feature_dim}")
-        return wrapper, feature_dim
+        # ===== Optional projection layer =====
+        # Project 768 → 512 for better adaptation
+        feature_dim = getattr(base, "embed_dim", 768)
+        projector = nn.Linear(feature_dim, 512)
+
+        wrapper = nn.Sequential(
+            FeatureWrapper(base, pool_type="mean"),
+            projector
+        )
+
+        print("✅ Hugging Face DINOv2 backbone loaded. Feature dim = 512 (after projection)")
+        return wrapper, 512
 
     elif name == "resnet50":
         print("✅ Loading ResNet50 backbone...")

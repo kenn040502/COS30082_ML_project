@@ -64,25 +64,24 @@ def main():
     os.makedirs("checkpoints", exist_ok=True)
 
     # ===== Choose backbone =====
-    # Options: "resnet50", "dinov2"
-    backbone = "resnet50"  # change back to "resnet50" if you want baseline
+    backbone_name = "dinov2"  # "resnet50" or "dinov2"
 
     # ===== Dataset and transforms =====
     data_root = "./AML_project_herbarium_dataset"
-    train_tf = get_transforms(train=True, backbone=backbone)
-    test_tf = get_transforms(train=False, backbone=backbone)
+    train_tf = get_transforms(train=True, backbone=backbone_name)
+    test_tf = get_transforms(train=False, backbone=backbone_name)
 
-    # initialize class mapping
+    # Initialize class mapping
     _ = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
 
-    # datasets
+    # ===== Datasets =====
     source_dataset = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
     target_dataset = PlantFolderDataset(data_root, domain='photo', split='train', transform=train_tf)
     val_dataset = PlantFolderDataset(data_root, domain='herbarium', split='val', transform=test_tf)
     test_dataset = PlantTestDataset(data_root, transform=test_tf)
 
-    # dataloaders (lower batch_size for DINOv2 to avoid OOM)
-    batch_size = 16 if "resnet50" in backbone else 2
+    # ===== Dataloaders =====
+    batch_size = 16 if "resnet50" in backbone_name else 2
     num_workers = 2
 
     source_loader = DataLoader(source_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -100,23 +99,36 @@ def main():
     print(f"✅ Test samples: {len(test_dataset)}")
 
     # =============== MODEL ===============
-    F, feat_dim = get_backbone(backbone)
+    F, feat_dim = get_backbone(backbone_name)
     C = ClassifierHead(feat_dim, num_classes=num_shared)
-    D = DomainDiscriminator(feat_dim)
+    # after F, feat_dim, C creation
+    # if using CDAN (i.e. ViT / dinov2), the CDAN input per sample is feat_dim * num_classes
+    if "dinov2" in backbone_name.lower() or "vit" in backbone_name.lower():
+        # CDAN
+        input_dim_for_D = feat_dim * num_shared
+        use_ln = True
+    else:
+        # DANN
+        input_dim_for_D = feat_dim
+        use_ln = False
+
+    D = DomainDiscriminator(input_dim=input_dim_for_D, hidden_dim=512 if use_ln else 1024, use_layernorm=use_ln)
+
     F, C, D = F.to(device), C.to(device), D.to(device)
 
-    # =============== TRAINING ===============
+    # =============== TRAINING =======
     losses = get_losses()
     optimizer = optim.Adam(
         itertools.chain(F.parameters(), C.parameters(), D.parameters()),
-        lr=1e-4,
-        weight_decay=1e-4
+        lr=1e-4, weight_decay=1e-4
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
-    trainer = Trainer(F, C, D, losses, optimizer, device)
-    lambda_domain = 0.1
+    
+    # Pass backbone_type to Trainer for CDAN
+    trainer = Trainer(F, C, D, losses, optimizer, device, backbone_type=backbone_name)
+    lambda_domain = 0.3
 
-    num_epochs = 30  # you can increase later
+    num_epochs = 30
     best_accuracy = 0.0
 
     print("\n🚀 Starting Partial Domain Adaptation Training...")
@@ -130,7 +142,14 @@ def main():
                 if s_batch is None or t_batch is None:
                     continue
 
-                stats = trainer.train_step(s_batch, t_batch, lambda_=lambda_domain)
+                stats = trainer.train_step(
+                    s_batch, t_batch,
+                    epoch=epoch, batch_idx=batches,
+                    num_batches=num_batches,
+                    num_epochs=num_epochs,
+                    max_lambda=lambda_domain
+                )
+
                 total_cls_loss += stats['train_loss']
                 total_dom_loss += stats['domain_loss']
                 total_train_acc += stats['train_acc']
@@ -144,14 +163,19 @@ def main():
                 pbar.update(1)
 
         scheduler.step()
-        val_top1, _ = evaluate_model(F, C, val_loader, device)
-        print(f"\nEpoch {epoch+1}/{num_epochs} | LR: {scheduler.get_last_lr()[0]:.2e}")
-        print(f"  Train Acc: {total_train_acc / batches:.2f}% | Val Acc: {val_top1:.2f}%")
 
-        if val_top1 > best_accuracy:
-            best_accuracy = val_top1
+        # Evaluate source and target validation
+        val_src_top1, _ = evaluate_model(F, C, val_loader, device)
+        val_tgt_top1, _ = evaluate_model(F, C, target_loader, device)
+
+        print(f"\nEpoch {epoch+1}/{num_epochs} | LR: {scheduler.get_last_lr()[0]:.2e}")
+        print(f"  Train Acc: {total_train_acc / batches:.2f}% | Source Val Acc: {val_src_top1:.2f}% | Target Val Acc: {val_tgt_top1:.2f}%")
+
+        # Save best model based on target validation
+        if val_tgt_top1 > best_accuracy:
+            best_accuracy = val_tgt_top1
             trainer.save_checkpoint(epoch+1, "checkpoints/best_model.pth", stats)
-            print(f"🎉 New best model saved ({val_top1:.2f}%)")
+            print(f"🎉 New best model saved (Target Val Acc: {val_tgt_top1:.2f}%)")
 
         if (epoch + 1) % 5 == 0:
             trainer.save_checkpoint(epoch+1, f"checkpoints/epoch_{epoch+1}.pth", stats)
@@ -159,35 +183,24 @@ def main():
         print("-" * 50)
 
     # =============== FINAL EVALUATION ===============
-    print("\n🎯 Loading Best Model for Final Evaluation...")
+    print("\n🎯 Loading Best Model for Evaluation...")
     best_ckpt_path = "checkpoints/best_model.pth"
 
     if os.path.exists(best_ckpt_path):
         checkpoint = torch.load(best_ckpt_path, map_location=device)
-        keys = list(checkpoint.keys())
-        print(f"🧩 Found checkpoint keys: {keys}")
-
-        # Flexible loading for both resnet50 and dinov2 checkpoints
-        if "F_state" in checkpoint and "C_state" in checkpoint:
-            F.load_state_dict(checkpoint["F_state"])
-            C.load_state_dict(checkpoint["C_state"])
-        elif "feature_extractor_state_dict" in checkpoint and "classifier_state_dict" in checkpoint:
+        if "feature_extractor_state_dict" in checkpoint and "classifier_state_dict" in checkpoint:
             F.load_state_dict(checkpoint["feature_extractor_state_dict"])
             C.load_state_dict(checkpoint["classifier_state_dict"])
-        elif "model_state_dict" in checkpoint:
-            # In case trainer saves combined model
-            F.load_state_dict(checkpoint["model_state_dict"])
         else:
-            raise KeyError(f"❌ Unrecognized checkpoint format. Keys found: {keys}")
-
+            print("⚠️ Checkpoint missing expected keys; using current weights.")
         print(f"✅ Loaded best model from epoch {checkpoint.get('epoch', '?')} with Val Acc = {best_accuracy:.2f}%")
     else:
         print("⚠️ No best_model.pth found, using final epoch weights.")
 
+    F.eval()
+    C.eval()
 
-    F.eval(); C.eval()
-
-    print("\n🌿 Validation Evaluation (Best Model):")
+    print("\n🌿 Validation Evaluation:")
     val_top1, val_top5 = evaluate_model(F, C, val_loader, device)
     print(f"🌿 Validation Top-1: {val_top1:.2f}%, Top-5: {val_top5:.2f}%")
 
@@ -195,22 +208,11 @@ def main():
     per_class_acc, test_acc = evaluate_per_class(F, C, test_loader, device, class_names)
     print(f"\n🎯 Overall Test Accuracy: {test_acc:.2f}%")
 
-
     print("\n🐢 Lowest 10 performing classes:")
     sorted_acc = sorted(list(enumerate(per_class_acc)), key=lambda x: x[1])
     for i, acc in sorted_acc[:10]:
         cname = class_names[i] if class_names else f"Class {i}"
         print(f"{cname:<25} | {acc:6.2f}%")
-
-    print(f"\n🏆 Best Val Accuracy: {best_accuracy:.2f}%")
-
-    print(f"🌿 Validation Top-1: {val_top1:.2f}%, Top-5: {val_top5:.2f}%")
-
-    print("\n🌳 Test Evaluation (Photo Domain):")
-    F.eval(); C.eval()
-    per_class_acc = evaluate_per_class(F, C, test_loader, device, class_names)
-
-
 
     print(f"\n🏆 Best Val Accuracy: {best_accuracy:.2f}%")
 
