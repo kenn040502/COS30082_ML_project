@@ -7,6 +7,10 @@ Our goals is reach the best target validation accuracy and test (field) accuracy
 
 Best domain loss (Dom Loss) is around 0.4-0.6, adjust the lambda_domain value in main.py to reach better target validation accuracy result
 
+Currently the model training skipped 40 classes that don't have field photos because I focusing on Domain Adaptation performance, you may try zero shot or other method for these classes
+
+The best record is test accuracy 58.17%, target validation 53.93%, by setting domain_lambda to 0.5, adding lambda scheduler, entropy minimization, with the epoch 29/50 (it stop improving after 29 epoch T_T)
+
 Reminder don't set the batch size too high for dinov2 backbone if you don't have a high spec PC (currently set to 2)
 
 1. Data Augmentation & Preprocessing Block  

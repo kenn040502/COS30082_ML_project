@@ -46,8 +46,8 @@ class Trainer:
 
     # ---------- Training step ----------
     def train_step(self, train_batch, target_batch,
-                   lambda_=None, epoch=None, batch_idx=None,
-                   num_batches=None, num_epochs=None, max_lambda=0.1):
+                lambda_=None, epoch=None, batch_idx=None,
+                num_batches=None, num_epochs=None, max_lambda=0.1):
 
         self.F.train(); self.C.train(); self.D.train()
 
@@ -102,6 +102,13 @@ class Trainer:
 
         loss_dom = self.losses["domain"](d_preds, d_labels)
 
+        # === 🔹 Entropy Minimization (Target domain) ===
+        tgt_logits = self.C(f_target)  # forward target through classifier
+        p = torch.softmax(tgt_logits, dim=1)
+        entropy = -torch.sum(p * torch.log(p + 1e-5), dim=1)
+        entropy_loss = torch.mean(entropy)
+        entropy_weight = 0.01  # tune 0.005–0.05
+
         # === Logging metrics ===
         with torch.no_grad():
             d_prob = torch.sigmoid(d_preds)
@@ -109,11 +116,10 @@ class Trainer:
             disc_acc = (d_pred_labels == d_labels).float().mean().item() * 100.0
 
         # === Backprop ===
-        total_loss = loss_cls + lambda_val * loss_dom
+        total_loss = loss_cls + lambda_val * loss_dom + entropy_weight * entropy_loss
         self.opt.zero_grad()
         total_loss.backward()
 
-        # gradient clipping to prevent explosion
         torch.nn.utils.clip_grad_norm_(
             list(self.F.parameters()) + list(self.C.parameters()) + list(self.D.parameters()), 5.0
         )
@@ -123,10 +129,12 @@ class Trainer:
         return {
             "train_loss": loss_cls.item(),
             "domain_loss": loss_dom.item(),
+            "entropy_loss": entropy_loss.item(),
             "train_acc": train_acc,
             "disc_acc": disc_acc,
             "lambda_val": float(lambda_val)
         }
+
 
     # ---------- Evaluation ----------
     def evaluate(self, val_loader, test_loader):
