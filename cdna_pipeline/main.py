@@ -8,7 +8,7 @@ import numpy as np
 from tqdm import tqdm
 
 from models.feature_extractor import get_backbone
-from models.classifier import ClassifierHead
+from models.classifier import LogisticRegressionHead
 from models.cdan_module import DomainDiscriminator
 from utils.losses import get_losses
 from utils.trainer import Trainer
@@ -63,25 +63,21 @@ def main():
     print(f"Using device: {device}")
     os.makedirs("checkpoints", exist_ok=True)
 
-    # ===== Choose backbone =====
-    backbone_name = "dinov2"  # "resnet50" or "dinov2"
+    backbone_name = "dinov2"  # or "resnet50"
 
     # ===== Dataset and transforms =====
     data_root = "./AML_project_herbarium_dataset"
     train_tf = get_transforms(train=True, backbone=backbone_name)
     test_tf = get_transforms(train=False, backbone=backbone_name)
 
-    # Initialize class mapping
     _ = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
 
-    # ===== Datasets =====
     source_dataset = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
     target_dataset = PlantFolderDataset(data_root, domain='photo', split='train', transform=train_tf)
     val_dataset = PlantFolderDataset(data_root, domain='herbarium', split='val', transform=test_tf)
     test_dataset = PlantTestDataset(data_root, transform=test_tf)
 
-    # ===== Dataloaders =====
-    batch_size = 16 if "resnet50" in backbone_name else 2
+    batch_size = 2
     num_workers = 2
 
     source_loader = DataLoader(source_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -99,42 +95,34 @@ def main():
     print(f"✅ Test samples: {len(test_dataset)}")
 
     # =============== MODEL ===============
-    F, feat_dim = get_backbone(backbone_name)
-    C = ClassifierHead(feat_dim, num_classes=num_shared)
-    # after F, feat_dim, C creation
-    # if using CDAN (i.e. ViT / dinov2), the CDAN input per sample is feat_dim * num_classes
-    if "dinov2" in backbone_name.lower() or "vit" in backbone_name.lower():
-        # CDAN
-        input_dim_for_D = feat_dim * num_shared
-        use_ln = True
-    else:
-        # DANN
-        input_dim_for_D = feat_dim
-        use_ln = False
-
+    F, feat_dim = get_backbone(backbone_name, freeze_all=True) #set to false if you want to unfreeze last layer
+    C = LogisticRegressionHead(feat_dim, num_classes=num_shared)
+    input_dim_for_D = feat_dim * num_shared
+    use_ln = True
     D = DomainDiscriminator(input_dim=input_dim_for_D, hidden_dim=512 if use_ln else 1024, use_layernorm=use_ln)
-
     F, C, D = F.to(device), C.to(device), D.to(device)
 
-    # =============== TRAINING =======
+# =============== TRAINING ===============
     losses = get_losses()
     optimizer = optim.Adam(
         itertools.chain(F.parameters(), C.parameters(), D.parameters()),
         lr=1e-4, weight_decay=1e-4
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
-    
-    # Pass backbone_type to Trainer for CDAN
-    trainer = Trainer(F, C, D, losses, optimizer, device, backbone_type=backbone_name)
-    lambda_domain = 0.3
 
-    num_epochs = 30
+    trainer = Trainer(F, C, D, losses, optimizer, device, backbone_type=backbone_name)
+    lambda_domain = 1
+    gamma_entropy = 0.005 # <--- Added Gamma for Entropy loss
+    num_epochs = 50
     best_accuracy = 0.0
 
     print("\n🚀 Starting Partial Domain Adaptation Training...")
 
     for epoch in range(num_epochs):
-        total_cls_loss, total_dom_loss, total_train_acc, batches = 0.0, 0.0, 0.0, 0
+        # Changed total_ent_loss initialization
+        total_cls_loss = total_dom_loss = total_ent_loss = 0.0 
+        total_src_acc = total_tgt_acc = total_disc_acc = total_lambda = 0.0
+        batches = 0
         num_batches = max(len(source_loader), len(target_loader))
 
         with tqdm(total=num_batches, desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch") as pbar:
@@ -147,55 +135,61 @@ def main():
                     epoch=epoch, batch_idx=batches,
                     num_batches=num_batches,
                     num_epochs=num_epochs,
-                    max_lambda=lambda_domain
+                    max_lambda=lambda_domain,
+                    gamma_entropy=gamma_entropy # <--- Passed gamma_entropy
                 )
 
-                total_cls_loss += stats['train_loss']
-                total_dom_loss += stats['domain_loss']
-                total_train_acc += stats['train_acc']
+                total_cls_loss += stats["train_loss"]
+                total_dom_loss += stats["domain_loss"]
+                total_ent_loss += stats["entropy_loss"] # <--- Accumulate entropy loss
+                total_src_acc += stats["train_acc"]
+                total_tgt_acc += stats.get("target_acc", 0.0)
+                total_disc_acc += stats["disc_acc"]
+                total_lambda += stats["lambda_val"]
                 batches += 1
 
                 pbar.set_postfix({
-                    "Cls Loss": f"{total_cls_loss / batches:.3f}",
-                    "Dom Loss": f"{total_dom_loss / batches:.3f}",
-                    "Train Acc": f"{total_train_acc / batches:.2f}%"
+                    "Cls": f"{total_cls_loss / batches:.3f}",
+                    "Dom": f"{total_dom_loss / batches:.3f}",
+                    "Ent": f"{total_ent_loss / batches:.4f}", # <--- Added Entropy Loss to display
+                    "SrcAcc": f"{total_src_acc / batches:.2f}%",
+                    "DiscAcc": f"{total_disc_acc / batches:.2f}%",
+                    "λ": f"{total_lambda / batches:.3f}"
                 })
                 pbar.update(1)
 
         scheduler.step()
 
-        # Evaluate source and target validation
+        # Validation on both source and target domains
         val_src_top1, _ = evaluate_model(F, C, val_loader, device)
         val_tgt_top1, _ = evaluate_model(F, C, target_loader, device)
 
-        print(f"\nEpoch {epoch+1}/{num_epochs} | LR: {scheduler.get_last_lr()[0]:.2e}")
-        print(f"  Train Acc: {total_train_acc / batches:.2f}% | Source Val Acc: {val_src_top1:.2f}% | Target Val Acc: {val_tgt_top1:.2f}%")
+        avg_src_acc = total_src_acc / batches
+        avg_tgt_acc = total_tgt_acc / batches
+        avg_disc_acc = total_disc_acc / batches
+        avg_ent_loss = total_ent_loss / batches # <--- Used total_ent_loss
+        avg_lambda = total_lambda / batches
 
-        # Save best model based on target validation
+        print(f"\nEpoch {epoch+1}/{num_epochs} | LR: {scheduler.get_last_lr()[0]:.2e}")
+        print(f"  Source Train Acc: {avg_src_acc:.2f}% | Target Train Acc: {avg_tgt_acc:.2f}% | Disc Acc: {avg_disc_acc:.2f}% | Entropy: {avg_ent_loss:.4f} | λ: {avg_lambda:.3f}")
+        print(f"  Source Val Acc: {val_src_top1:.2f}% | Target Val Acc: {val_tgt_top1:.2f}%")
+
         if val_tgt_top1 > best_accuracy:
             best_accuracy = val_tgt_top1
             trainer.save_checkpoint(epoch+1, "checkpoints/best_model.pth", stats)
             print(f"🎉 New best model saved (Target Val Acc: {val_tgt_top1:.2f}%)")
 
-        if (epoch + 1) % 5 == 0:
-            trainer.save_checkpoint(epoch+1, f"checkpoints/epoch_{epoch+1}.pth", stats)
-
-        print("-" * 50)
-
     # =============== FINAL EVALUATION ===============
     print("\n🎯 Loading Best Model for Evaluation...")
     best_ckpt_path = "checkpoints/best_model.pth"
-
     if os.path.exists(best_ckpt_path):
         checkpoint = torch.load(best_ckpt_path, map_location=device)
         if "feature_extractor_state_dict" in checkpoint and "classifier_state_dict" in checkpoint:
             F.load_state_dict(checkpoint["feature_extractor_state_dict"])
             C.load_state_dict(checkpoint["classifier_state_dict"])
-        else:
-            print("⚠️ Checkpoint missing expected keys; using current weights.")
         print(f"✅ Loaded best model from epoch {checkpoint.get('epoch', '?')} with Val Acc = {best_accuracy:.2f}%")
     else:
-        print("⚠️ No best_model.pth found, using final epoch weights.")
+        print("⚠️ No best_model.pth found, using final weights.")
 
     F.eval()
     C.eval()
@@ -214,7 +208,7 @@ def main():
         cname = class_names[i] if class_names else f"Class {i}"
         print(f"{cname:<25} | {acc:6.2f}%")
 
-    print(f"\n🏆 Best Val Accuracy: {best_accuracy:.2f}%")
+    print(f"\n🏆 Best Target Val Accuracy: {best_accuracy:.2f}%")
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import torch
 import os, math, numpy as np
 from utils.metrics import evaluate_model
+from models.cdan_module import conditional_adversarial_features
 
 class Trainer:
     def __init__(self, feature_extractor, classifier, discriminator, losses, optimizer, device, backbone_type="resnet"):
@@ -47,7 +48,8 @@ class Trainer:
     # ---------- Training step ----------
     def train_step(self, train_batch, target_batch,
                 lambda_=None, epoch=None, batch_idx=None,
-                num_batches=None, num_epochs=None, max_lambda=0.1):
+                num_batches=None, num_epochs=None, max_lambda=0.1,
+                gamma_entropy=0.1): # <--- Added gamma_entropy parameter
 
         self.F.train(); self.C.train(); self.D.train()
 
@@ -66,9 +68,9 @@ class Trainer:
             f_target = f_target.mean(dim=1)
 
         # === Classification ===
-        preds = self.C(f_train)
-        loss_cls = self.losses["classification"](preds, labels_train)
-        _, predicted = preds.max(1)
+        preds_train = self.C(f_train)
+        loss_cls = self.losses["classification"](preds_train, labels_train)
+        _, predicted = preds_train.max(1)
         correct = predicted.eq(labels_train).sum().item()
         train_acc = 100.0 * correct / max(1, labels_train.size(0))
 
@@ -79,62 +81,68 @@ class Trainer:
         else:
             lambda_val = lambda_ if lambda_ is not None else max_lambda
 
-        # === Domain alignment (CDAN style for ViT / DINOv2) ===
-        if "vit" in self.backbone_type or "dino" in self.backbone_type:
-            probs_train = torch.softmax(preds, dim=1)
-            probs_target = torch.softmax(self.C(f_target), dim=1).detach()
+        # === CDAN Domain alignment ===
+        preds_target = self.C(f_target)
+        soft_train = torch.softmax(preds_train, dim=1)
+        soft_target = torch.softmax(preds_target, dim=1)
 
-            feat_cond_train = torch.bmm(probs_train.unsqueeze(2), f_train.unsqueeze(1)).view(f_train.size(0), -1)
-            feat_cond_target = torch.bmm(probs_target.unsqueeze(2), f_target.unsqueeze(1)).view(f_target.size(0), -1)
-            f_all = torch.cat([feat_cond_train, feat_cond_target], dim=0)
-        else:
-            f_all = torch.cat([f_train, f_target], dim=0)
-
-        # === Domain labels & prediction ===
-        d_labels = torch.cat([
+        f_all = torch.cat([f_train, f_target], dim=0)
+        y_all = torch.cat([soft_train, soft_target], dim=0)
+        domain_labels = torch.cat([
             torch.zeros(f_train.size(0), device=self.device),
             torch.ones(f_target.size(0), device=self.device)
         ], dim=0)
 
-        d_preds = self.D(f_all, lambda_val).squeeze()
-        if d_preds.dim() == 0:
-            d_preds = d_preds.unsqueeze(0)
+        # 🔹 Conditional feature combination (outer product)
+        feat_cond = conditional_adversarial_features(f_all, y_all, mode="outer")
 
-        loss_dom = self.losses["domain"](d_preds, d_labels)
+        # 🔹 Entropy weighting for target samples
+        entropy = -torch.sum(soft_target * torch.log(soft_target + 1e-5), dim=1)
+        entropy = 1.0 + torch.exp(-entropy)
+        weights = entropy / torch.sum(entropy)
+        weights = (weights / torch.max(weights)).detach()  # normalize for stability
 
-        # === 🔹 Entropy Minimization (Target domain) ===
-        tgt_logits = self.C(f_target)  # forward target through classifier
-        p = torch.softmax(tgt_logits, dim=1)
-        entropy = -torch.sum(p * torch.log(p + 1e-5), dim=1)
-        entropy_loss = torch.mean(entropy)
-        entropy_weight = 0.01  # tune 0.005–0.05
+        # Discriminator forward
+        d_out = self.D(feat_cond, lambda_=lambda_val)
+        d_out = d_out.squeeze()
+
+        # Split domain preds for entropy weighting
+        d_src = d_out[:f_train.size(0)]
+        d_tgt = d_out[f_train.size(0):]
+
+        # === Domain loss with entropy conditioning ===
+        loss_src = self.losses["domain"](d_src, torch.zeros_like(d_src))
+        loss_tgt = (self.losses["domain"](d_tgt, torch.ones_like(d_tgt)) * weights).mean()
+        loss_dom = (loss_src + loss_tgt) / 2.0
+        
+        # === Entropy loss (CDAN+E) ===
+        # The goal is to minimize the entropy of target predictions (make them more confident)
+        loss_ent = -torch.mean(torch.sum(soft_target * torch.log(soft_target + 1e-5), dim=1)) # <--- Added Entropy Loss
+
+        # === Total loss ===
+        total_loss = loss_cls + lambda_val * loss_dom + gamma_entropy * loss_ent # <--- Added Entropy Loss term
 
         # === Logging metrics ===
         with torch.no_grad():
-            d_prob = torch.sigmoid(d_preds)
-            d_pred_labels = (d_prob > 0.5).float()
-            disc_acc = (d_pred_labels == d_labels).float().mean().item() * 100.0
+            d_pred = (torch.sigmoid(d_out) > 0.5).float()
+            disc_acc = (d_pred == domain_labels).float().mean().item() * 100.0
 
         # === Backprop ===
-        total_loss = loss_cls + lambda_val * loss_dom + entropy_weight * entropy_loss
         self.opt.zero_grad()
         total_loss.backward()
-
         torch.nn.utils.clip_grad_norm_(
             list(self.F.parameters()) + list(self.C.parameters()) + list(self.D.parameters()), 5.0
         )
-
         self.opt.step()
 
         return {
             "train_loss": loss_cls.item(),
             "domain_loss": loss_dom.item(),
-            "entropy_loss": entropy_loss.item(),
+            "entropy_loss": loss_ent.item(), # <--- Added entropy_loss to return dict
             "train_acc": train_acc,
             "disc_acc": disc_acc,
             "lambda_val": float(lambda_val)
         }
-
 
     # ---------- Evaluation ----------
     def evaluate(self, val_loader, test_loader):
