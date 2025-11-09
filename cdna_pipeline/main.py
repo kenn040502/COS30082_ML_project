@@ -1,20 +1,24 @@
-import torch
-import torch.optim as optim
-from torch.utils.data import DataLoader
+# cdna_pipeline/main.py  — DINOv2-only training + eval
+
 import os
 import itertools
 from collections import defaultdict
+
 import numpy as np
+import torch
+import torch.optim as optim
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from models.feature_extractor import get_backbone
-from models.classifier import LogisticRegressionHead
-from models.cdan_module import DomainDiscriminator
-from utils.losses import get_losses
-from utils.trainer import Trainer
-from utils.transforms import get_transforms
-from utils.metrics import evaluate_model
-from datasets import PlantFolderDataset, PlantTestDataset
+# --- package imports (match your tree) ---
+from cdna_pipeline.models.feature_extractor import get_backbone
+from cdna_pipeline.models.classifier import LogisticRegressionHead
+from cdna_pipeline.models.cdan_module import DomainDiscriminator
+from cdna_pipeline.utils.losses import get_losses
+from cdna_pipeline.utils.trainer import Trainer
+from cdna_pipeline.utils.transforms import get_transforms
+from cdna_pipeline.utils.metrics import evaluate_model
+from cdna_pipeline.datasets import PlantFolderDataset, PlantTestDataset
 
 
 @torch.no_grad()
@@ -27,8 +31,8 @@ def evaluate_per_class(F, C, loader, device, class_names=None):
     total_samples = 0
 
     for batch in loader:
-        images = batch['image'].to(device)
-        labels = batch['label'].to(device)
+        images = batch["image"].to(device)
+        labels = batch["label"].to(device)
         feats = F(images)
         outputs = C(feats)
         preds = torch.argmax(outputs, dim=1)
@@ -49,8 +53,8 @@ def evaluate_per_class(F, C, loader, device, class_names=None):
         print(f"{cname:<25} | Acc: {acc:6.2f}% | Samples: {total_per_class[c]}")
 
     print("-" * 50)
-    mean_acc = np.mean(all_acc)
-    overall_acc = 100.0 * total_correct / total_samples
+    mean_acc = float(np.mean(all_acc)) if all_acc else 0.0
+    overall_acc = 100.0 * total_correct / max(1, total_samples)
     print(f"📊 Mean per-class accuracy: {mean_acc:.2f}%")
     print(f"🎯 Overall test accuracy:   {overall_acc:.2f}%")
 
@@ -63,30 +67,47 @@ def main():
     print(f"Using device: {device}")
     os.makedirs("checkpoints", exist_ok=True)
 
-    backbone_name = "dinov2"  # or "resnet50"
+    backbone_name = "dinov2"  # DINOv2 only
 
     # ===== Dataset and transforms =====
     data_root = "./AML_project_herbarium_dataset"
     train_tf = get_transforms(train=True, backbone=backbone_name)
     test_tf = get_transforms(train=False, backbone=backbone_name)
 
-    _ = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
+    # initialize global class mapping
+    _ = PlantFolderDataset(
+        data_root, domain="herbarium", split="train", transform=train_tf
+    )
 
-    source_dataset = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=train_tf)
-    target_dataset = PlantFolderDataset(data_root, domain='photo', split='train', transform=train_tf)
-    val_dataset = PlantFolderDataset(data_root, domain='herbarium', split='val', transform=test_tf)
+    source_dataset = PlantFolderDataset(
+        data_root, domain="herbarium", split="train", transform=train_tf
+    )
+    target_dataset = PlantFolderDataset(
+        data_root, domain="photo", split="train", transform=train_tf
+    )
+    val_dataset = PlantFolderDataset(
+        data_root, domain="herbarium", split="val", transform=test_tf
+    )
     test_dataset = PlantTestDataset(data_root, transform=test_tf)
 
-    batch_size = 2
-    num_workers = 2
+    batch_size = 16
+    num_workers = 0  # set >0 if your Windows/PyTorch setup supports it
 
-    source_loader = DataLoader(source_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    target_loader = DataLoader(target_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    source_loader = DataLoader(
+        source_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
+    )
+    target_loader = DataLoader(
+        target_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+    )
 
     num_shared = len(PlantFolderDataset.global_class_to_idx)
-    class_names = getattr(PlantFolderDataset, 'global_idx_to_class', None)
+    class_names = getattr(PlantFolderDataset, "global_idx_to_class", None)
 
     print(f"✅ Source (herbarium train): {len(source_dataset)} samples")
     print(f"✅ Target (photo train): {len(target_dataset)} samples")
@@ -95,32 +116,38 @@ def main():
     print(f"✅ Test samples: {len(test_dataset)}")
 
     # =============== MODEL ===============
-    F, feat_dim = get_backbone(backbone_name, freeze_all=True) #set to false if you want to unfreeze last layer
+    F, feat_dim = get_backbone(backbone_name, freeze_all=True)  # set False to unfreeze last layers
     C = LogisticRegressionHead(feat_dim, num_classes=num_shared)
+
     input_dim_for_D = feat_dim * num_shared
     use_ln = True
-    D = DomainDiscriminator(input_dim=input_dim_for_D, hidden_dim=512 if use_ln else 1024, use_layernorm=use_ln)
+    D = DomainDiscriminator(
+        input_dim=input_dim_for_D,
+        hidden_dim=512 if use_ln else 1024,
+        use_layernorm=use_ln,
+    )
+
     F, C, D = F.to(device), C.to(device), D.to(device)
 
-# =============== TRAINING ===============
+    # =============== TRAINING ===============
     losses = get_losses()
     optimizer = optim.Adam(
         itertools.chain(F.parameters(), C.parameters(), D.parameters()),
-        lr=1e-4, weight_decay=1e-4
+        lr=1e-4,
+        weight_decay=1e-4,
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 
     trainer = Trainer(F, C, D, losses, optimizer, device, backbone_type=backbone_name)
-    lambda_domain = 1
-    gamma_entropy = 0.005 # <--- Added Gamma for Entropy loss
+    lambda_domain = 1.0
+    gamma_entropy = 0.005
     num_epochs = 50
     best_accuracy = 0.0
 
     print("\n🚀 Starting Partial Domain Adaptation Training...")
 
     for epoch in range(num_epochs):
-        # Changed total_ent_loss initialization
-        total_cls_loss = total_dom_loss = total_ent_loss = 0.0 
+        total_cls_loss = total_dom_loss = total_ent_loss = 0.0
         total_src_acc = total_tgt_acc = total_disc_acc = total_lambda = 0.0
         batches = 0
         num_batches = max(len(source_loader), len(target_loader))
@@ -131,31 +158,35 @@ def main():
                     continue
 
                 stats = trainer.train_step(
-                    s_batch, t_batch,
-                    epoch=epoch, batch_idx=batches,
+                    s_batch,
+                    t_batch,
+                    epoch=epoch,
+                    batch_idx=batches,
                     num_batches=num_batches,
                     num_epochs=num_epochs,
                     max_lambda=lambda_domain,
-                    gamma_entropy=gamma_entropy # <--- Passed gamma_entropy
+                    gamma_entropy=gamma_entropy,
                 )
 
                 total_cls_loss += stats["train_loss"]
                 total_dom_loss += stats["domain_loss"]
-                total_ent_loss += stats["entropy_loss"] # <--- Accumulate entropy loss
+                total_ent_loss += stats["entropy_loss"]
                 total_src_acc += stats["train_acc"]
                 total_tgt_acc += stats.get("target_acc", 0.0)
                 total_disc_acc += stats["disc_acc"]
                 total_lambda += stats["lambda_val"]
                 batches += 1
 
-                pbar.set_postfix({
-                    "Cls": f"{total_cls_loss / batches:.3f}",
-                    "Dom": f"{total_dom_loss / batches:.3f}",
-                    "Ent": f"{total_ent_loss / batches:.4f}", # <--- Added Entropy Loss to display
-                    "SrcAcc": f"{total_src_acc / batches:.2f}%",
-                    "DiscAcc": f"{total_disc_acc / batches:.2f}%",
-                    "λ": f"{total_lambda / batches:.3f}"
-                })
+                pbar.set_postfix(
+                    {
+                        "Cls": f"{total_cls_loss / batches:.3f}",
+                        "Dom": f"{total_dom_loss / batches:.3f}",
+                        "Ent": f"{total_ent_loss / batches:.4f}",
+                        "SrcAcc": f"{total_src_acc / batches:.2f}%",
+                        "DiscAcc": f"{total_disc_acc / batches:.2f}%",
+                        "λ": f"{total_lambda / batches:.3f}",
+                    }
+                )
                 pbar.update(1)
 
         scheduler.step()
@@ -164,19 +195,22 @@ def main():
         val_src_top1, _ = evaluate_model(F, C, val_loader, device)
         val_tgt_top1, _ = evaluate_model(F, C, target_loader, device)
 
-        avg_src_acc = total_src_acc / batches
-        avg_tgt_acc = total_tgt_acc / batches
-        avg_disc_acc = total_disc_acc / batches
-        avg_ent_loss = total_ent_loss / batches # <--- Used total_ent_loss
-        avg_lambda = total_lambda / batches
+        avg_src_acc = total_src_acc / max(1, batches)
+        avg_tgt_acc = total_tgt_acc / max(1, batches)
+        avg_disc_acc = total_disc_acc / max(1, batches)
+        avg_ent_loss = total_ent_loss / max(1, batches)
+        avg_lambda = total_lambda / max(1, batches)
 
         print(f"\nEpoch {epoch+1}/{num_epochs} | LR: {scheduler.get_last_lr()[0]:.2e}")
-        print(f"  Source Train Acc: {avg_src_acc:.2f}% | Target Train Acc: {avg_tgt_acc:.2f}% | Disc Acc: {avg_disc_acc:.2f}% | Entropy: {avg_ent_loss:.4f} | λ: {avg_lambda:.3f}")
+        print(
+            f"  Source Train Acc: {avg_src_acc:.2f}% | Target Train Acc: {avg_tgt_acc:.2f}% | "
+            f"Disc Acc: {avg_disc_acc:.2f}% | Entropy: {avg_ent_loss:.4f} | λ: {avg_lambda:.3f}"
+        )
         print(f"  Source Val Acc: {val_src_top1:.2f}% | Target Val Acc: {val_tgt_top1:.2f}%")
 
         if val_tgt_top1 > best_accuracy:
             best_accuracy = val_tgt_top1
-            trainer.save_checkpoint(epoch+1, "checkpoints/best_model.pth", stats)
+            trainer.save_checkpoint(epoch + 1, "checkpoints/best_model.pth", stats)
             print(f"🎉 New best model saved (Target Val Acc: {val_tgt_top1:.2f}%)")
 
     # =============== FINAL EVALUATION ===============
@@ -211,5 +245,5 @@ def main():
     print(f"\n🏆 Best Target Val Accuracy: {best_accuracy:.2f}%")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
