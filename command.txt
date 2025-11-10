@@ -1,0 +1,41 @@
+# ==== Zero-Shot Eval — Copy/Paste Commands (PowerShell) ====
+
+# 0) Install minimal dependencies (in your venv if you use one)
+pip install torch torchvision timm pillow matplotlib numpy
+
+# 1) Set paths (edit these to your machine)
+$ROOT  = "C:\Users\User\Documents\GitHub\COS30082_ML_project\AML_project_herbarium_dataset"
+$PROTO = "zero_shot_checkpoints\prototypes_089aa5cdaa75694b.pt"
+$OUT   = "zero_shot_results\report_run"
+
+# 2) (Re)build prototypes if classes changed
+python -m zeroshot.main --data-root "$ROOT" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --save-proto "$PROTO"
+
+# 3) Full evaluation (unpaired + paired if pairs.csv exists)
+python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --img-batch 8 `
+  --outdir "$OUT"
+
+# 4) Safer settings for RTX 4060
+python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --img-batch 6 `
+  --outdir "$OUT\cool"
+
+# 5) CPU mode
+python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --device cpu `
+  --img-batch 4 `
+  --outdir "$OUT\cpu"
+
+# 6) Unpaired-only (temporarily hide pairs.csv)
+Rename-Item "$ROOT\list\pairs.csv" "pairs.skip.csv"
+python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --img-batch 8 `
+  --outdir "$OUT\unpaired_only"
+Rename-Item "$ROOT\list\pairs.skip.csv" "pairs.csv"
