@@ -11,7 +11,8 @@ import math
 from models.feature_extractor import get_backbone
 from models.triplet_net import TripletNet, triplet_loss
 from datasets import PlantTripletDataset, PlantTestDataset
-from utils.metrics import evaluate_embeddings 
+from utils.metrics import evaluate_embeddings_detailed
+from utils.class_utils import load_class_lists, get_class_type_mapping
 
 def main():
     # ===== IMPROVED CONFIG =====
@@ -21,7 +22,7 @@ def main():
     # 🚀 INCREASE BATCH SIZE - CRITICAL FOR HARD NEGATIVE MINING
     batch_size = 8  
     num_workers = 4
-    num_epochs = 5  # Increased epochs
+    num_epochs = 1  # Increased epochs
     
     # Learning rate adjustments
     base_lr = 1e-4
@@ -44,6 +45,14 @@ def main():
 
     test_dataset = PlantTestDataset(data_root, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    # ===== LOAD CLASS LISTS FOR DETAILED EVALUATION =====
+    classes_with_pairs, classes_without_pairs = load_class_lists(data_root)
+    class_type_mapping = get_class_type_mapping(
+        PlantTripletDataset.global_class_to_idx, 
+        classes_with_pairs, 
+        classes_without_pairs
+    )
 
     # ===== MODEL =====
     freeze_mode = "full"  
@@ -68,10 +77,18 @@ def main():
     print(f"🚀 Training on {len(train_dataset)} triplets, {len(PlantTripletDataset.global_class_to_idx)} classes")
     print(f"📊 Initial Test Performance Baseline...")
     
-    # Get baseline performance before training
+    # Get baseline performance before training with DETAILED evaluation
     with torch.no_grad():
-        top1_baseline, top5_baseline = evaluate_embeddings(model, test_loader, device)
-    print(f"📈 Baseline - Top-1: {top1_baseline:.2f}% | Top-5: {top5_baseline:.2f}%")
+        baseline_metrics = evaluate_embeddings_detailed(
+            model, test_loader, device, data_root, PlantTripletDataset.global_class_to_idx
+        )
+    
+    top1_baseline = baseline_metrics['overall_top1']
+    top5_baseline = baseline_metrics['overall_top5']
+    
+    print(f"📈 Baseline - Overall: {top1_baseline:.2f}% | "
+          f"With Pairs: {baseline_metrics['with_pairs_top1']:.2f}% | "
+          f"Without Pairs: {baseline_metrics['without_pairs_top1']:.2f}%")
 
     # ===== TRAINING LOOP =====
     for epoch in range(num_epochs):
@@ -111,17 +128,25 @@ def main():
         
         print(f"Epoch {epoch+1} | Loss: {avg_loss:.4f} | LR: {current_lr:.2e}")
 
-        # ===== EVALUATION =====
+        # ===== DETAILED EVALUATION =====
         model.eval()
-        top1, top5 = evaluate_embeddings(model, test_loader, device)
-        print(f"Test Accuracy: Top-1: {top1:.2f}% | Top-5: {top5:.2f}%")
+        metrics = evaluate_embeddings_detailed(
+            model, test_loader, device, data_root, PlantTripletDataset.global_class_to_idx
+        )
+        
+        top1 = metrics['overall_top1']
+        top5 = metrics['overall_top5']
+        
+        print(f"📊 Test Accuracy - Overall: {top1:.2f}% | "
+              f"With Pairs: {metrics['with_pairs_top1']:.2f}% | "
+              f"Without Pairs: {metrics['without_pairs_top1']:.2f}%")
         
         # ===== FIXED BEST MODEL TRACKING =====
         save_model = False
         if top1 > best_top1:
             best_top1 = top1
             torch.save(model.state_dict(), os.path.join(checkpoint_dir, "best_model_top1.pth"))
-            print(f"🏆 NEW BEST Top-1: {top1:.2f}% - Model saved!")
+            print(f"🏆 NEW BEST Overall Top-1: {top1:.2f}% - Model saved!")
             save_model = True
             
         if avg_loss < best_loss:
@@ -133,12 +158,35 @@ def main():
         # Update learning rate
         scheduler.step()
 
-    # ===== FINAL SAVE =====
+    # ===== FINAL SAVE AND SUMMARY =====
     torch.save(model.state_dict(), os.path.join(checkpoint_dir, "final_model.pth"))
-    print(f"✅ Training completed!")
-    print(f"🏆 Best Top-1 Accuracy: {best_top1:.2f}%")
-    print(f"🏆 Best Loss: {best_loss:.4f}")
-    print(f"📈 Improvement from baseline: +{best_top1 - top1_baseline:.2f}%")
+    
+    # Final evaluation with best model
+    print("\n" + "="*60)
+    print("🎯 FINAL TRAINING SUMMARY")
+    print("="*60)
+    
+    # Load best model for final evaluation
+    best_model_path = os.path.join(checkpoint_dir, "best_model_top1.pth")
+    if os.path.exists(best_model_path):
+        model.load_state_dict(torch.load(best_model_path))
+        print("✅ Loaded best model for final evaluation")
+        
+        final_metrics = evaluate_embeddings_detailed(
+            model, test_loader, device, data_root, PlantTripletDataset.global_class_to_idx
+        )
+        
+        print(f"🏆 Best Model Performance:")
+        print(f"   Overall Top-1:     {final_metrics['overall_top1']:.2f}%")
+        print(f"   With Pairs Top-1:  {final_metrics['with_pairs_top1']:.2f}%") 
+        print(f"   Without Pairs Top-1: {final_metrics['without_pairs_top1']:.2f}%")
+        print(f"   Overall Top-5:     {final_metrics['overall_top5']:.2f}%")
+        
+        improvement = final_metrics['overall_top1'] - top1_baseline
+        print(f"📈 Improvement from baseline: +{improvement:.2f}%")
+    
+    print(f"📉 Best Loss: {best_loss:.4f}")
+    print("="*60)
 
 if __name__ == "__main__":
     main()
