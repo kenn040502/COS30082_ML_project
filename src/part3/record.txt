@@ -1,676 +1,961 @@
-🌍 Shared classes: 60
-🌿 Herbarium-Only classes: 40
-✅ Total Herbarium Anchors: 3700
-✅ Loaded 207 test samples (Valid labels: 207, Skipped: 0)
-✅ Loading DINOv2 ViT-B/14 backbone (pretrained=True)...
-🛑 Backbone fully frozen.
-✅ DINOv2 backbone ready. Feature dim = 768
-🚀 Training on 3700 triplets, 100 classes
-📊 Initial Test Performance Baseline...
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:36<00:00,  1.39s/it] 
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   | 100.00% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs |   0.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   |  50.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  66.67% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  33.33% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  33.33% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   |  66.67% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 61.84% | With Pairs: 75.16% | Without Pairs: 24.07%
+📉 NEW BEST Loss: 0.0078 - Model saved!
+Epoch 15/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [34:41<00:00,  1.13s/it] 
+Epoch 15 | Loss: 0.0076 | LR: 2.06e-07
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:25<00:00,  4.04it/s] 
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc: 100.00% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc:   0.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:   0.00% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  66.67% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc:  66.67% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc: 100.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:   0.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc:  66.67% | Samples: 3
-35              | Acc:  66.67% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc:  66.67% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:   0.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc:   0.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:   0.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc:   0.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:  50.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:   0.00% | Samples: 2
-65              | Acc:   0.00% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:   0.00% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc:  50.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc: 100.00% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc:  66.67% | Samples: 3
-84              | Acc:  66.67% | Samples: 3
-85              | Acc:   0.00% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc:  66.67% | Samples: 3
-91              | Acc:  50.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc:  33.33% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc: 100.00% | Samples: 3
-98              | Acc:  66.67% | Samples: 3
-99              | Acc:  33.33% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 49.28% | Top-5: 64.25%
-📈 Baseline - Top-1: 49.28% | Top-5: 64.25%
-Epoch 1/5: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 463/463 [13:16<00:00,  1.72s/it] 
-Epoch 1 | Loss: 0.0519 | LR: 1.00e-06
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:26<00:00,  1.02s/it] 
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  63.29% |  75.85% |      207
+with_pairs      |  75.82% |  89.54% |      153
+without_pairs   |  27.78% |  37.04% |       54
+==================================================
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc:  66.67% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc:   0.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:  33.33% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  33.33% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc: 100.00% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc:  50.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:  50.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc: 100.00% | Samples: 3
-35              | Acc:  66.67% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc: 100.00% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:  50.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc:   0.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:   0.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc: 100.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:  50.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:   0.00% | Samples: 2
-65              | Acc:   0.00% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:   0.00% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc:   0.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc:  66.67% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc:  66.67% | Samples: 3
-84              | Acc:  66.67% | Samples: 3
-85              | Acc:   0.00% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc: 100.00% | Samples: 3
-91              | Acc:  50.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc: 100.00% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc:  66.67% | Samples: 3
-98              | Acc:  66.67% | Samples: 3
-99              | Acc:  66.67% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 52.17% | Top-5: 70.53%
-Test Accuracy: Top-1: 52.17% | Top-5: 70.53%
-🏆 NEW BEST Top-1: 52.17% - Model saved!
-📉 NEW BEST Loss: 0.0519 - Model saved!
-Epoch 2/5: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 463/463 [13:30<00:00,  1.75s/it] 
-Epoch 2 | Loss: 0.0299 | LR: 9.05e-07
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:26<00:00,  1.03s/it] 
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |  50.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   |  66.67% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs |  50.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  66.67% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  33.33% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 63.29% | With Pairs: 75.82% | Without Pairs: 27.78%
+📉 NEW BEST Loss: 0.0076 - Model saved!
+Epoch 16/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [34:43<00:00,  1.13s/it] 
+Epoch 16 | Loss: 0.0076 | LR: 1.46e-07
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:25<00:00,  4.02it/s] 
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc:  66.67% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc:   0.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:  33.33% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  33.33% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc:  66.67% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc: 100.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:   0.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc: 100.00% | Samples: 3
-35              | Acc:  66.67% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc: 100.00% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:   0.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc:   0.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:   0.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc: 100.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:   0.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:  50.00% | Samples: 2
-65              | Acc:   0.00% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:   0.00% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc: 100.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc:  66.67% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc: 100.00% | Samples: 3
-84              | Acc: 100.00% | Samples: 3
-85              | Acc:   0.00% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc: 100.00% | Samples: 3
-91              | Acc:   0.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc: 100.00% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc: 100.00% | Samples: 3
-98              | Acc:  33.33% | Samples: 3
-99              | Acc:  66.67% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 52.66% | Top-5: 72.46%
-Test Accuracy: Top-1: 52.66% | Top-5: 72.46%
-🏆 NEW BEST Top-1: 52.66% - Model saved!
-📉 NEW BEST Loss: 0.0299 - Model saved!
-Epoch 3/5: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 463/463 [13:34<00:00,  1.76s/it] 
-Epoch 3 | Loss: 0.0908 | LR: 6.55e-07
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:26<00:00,  1.02s/it] 
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  64.25% |  77.78% |      207
+with_pairs      |  76.47% |  91.50% |      153
+without_pairs   |  29.63% |  38.89% |       54
+==================================================
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc: 100.00% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc: 100.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:  33.33% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  66.67% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc: 100.00% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc: 100.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:   0.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc: 100.00% | Samples: 3
-35              | Acc:  33.33% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc: 100.00% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:   0.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc: 100.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:  50.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc: 100.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:   0.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:  50.00% | Samples: 2
-65              | Acc:  33.33% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:   0.00% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc: 100.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc:  66.67% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc: 100.00% | Samples: 3
-84              | Acc:  66.67% | Samples: 3
-85              | Acc:  33.33% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc: 100.00% | Samples: 3
-91              | Acc:  50.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc: 100.00% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc: 100.00% | Samples: 3
-98              | Acc:  66.67% | Samples: 3
-99              | Acc:  66.67% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 57.49% | Top-5: 74.40%
-Test Accuracy: Top-1: 57.49% | Top-5: 74.40%
-🏆 NEW BEST Top-1: 57.49% - Model saved!
-Epoch 4/5: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 463/463 [13:33<00:00,  1.76s/it] 
-Epoch 4 | Loss: 0.0725 | LR: 3.45e-07
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:26<00:00,  1.04s/it] 
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs | 100.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  66.67% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  66.67% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 64.25% | With Pairs: 76.47% | Without Pairs: 29.63%
+📉 NEW BEST Loss: 0.0076 - Model saved!
+Epoch 17/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [34:46<00:00,  1.13s/it] 
+Epoch 17 | Loss: 0.0070 | LR: 9.55e-08
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:26<00:00,  3.99it/s] 
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc: 100.00% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc: 100.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:  33.33% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  66.67% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc: 100.00% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc: 100.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:   0.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc: 100.00% | Samples: 3
-35              | Acc:  66.67% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc: 100.00% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:   0.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc: 100.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:  50.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc: 100.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:   0.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:  50.00% | Samples: 2
-65              | Acc:   0.00% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:  33.33% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc: 100.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc:  66.67% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc: 100.00% | Samples: 3
-84              | Acc:  66.67% | Samples: 3
-85              | Acc:  33.33% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc: 100.00% | Samples: 3
-91              | Acc:  50.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc: 100.00% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc: 100.00% | Samples: 3
-98              | Acc:  33.33% | Samples: 3
-99              | Acc:  66.67% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 57.49% | Top-5: 73.91%
-Test Accuracy: Top-1: 57.49% | Top-5: 73.91%
-Epoch 5/5: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 463/463 [13:28<00:00,  1.75s/it] 
-Epoch 5 | Loss: 0.0680 | LR: 9.55e-08
-Embedding Extraction: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 26/26 [00:25<00:00,  1.00it/s] 
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  62.80% |  77.29% |      207
+with_pairs      |  75.16% |  90.85% |      153
+without_pairs   |  27.78% |  38.89% |       54
+==================================================
 
-🌳 Test Evaluation (Per-Class Top-1):
-Class Index     | Acc        | Samples
--------------------------------------
-0               | Acc:   0.00% | Samples: 1
-1               | Acc:   0.00% | Samples: 2
-2               | Acc:   0.00% | Samples: 1
-3               | Acc:  66.67% | Samples: 3
-4               | Acc:   0.00% | Samples: 2
-5               | Acc: 100.00% | Samples: 2
-6               | Acc:   0.00% | Samples: 1
-7               | Acc:   0.00% | Samples: 1
-8               | Acc:   0.00% | Samples: 1
-9               | Acc: 100.00% | Samples: 2
-10              | Acc:   0.00% | Samples: 1
-11              | Acc: 100.00% | Samples: 2
-12              | Acc:  33.33% | Samples: 3
-13              | Acc:   0.00% | Samples: 1
-14              | Acc:   0.00% | Samples: 1
-15              | Acc:   0.00% | Samples: 1
-16              | Acc:   0.00% | Samples: 2
-17              | Acc:  33.33% | Samples: 3
-18              | Acc:   0.00% | Samples: 1
-19              | Acc:  66.67% | Samples: 3
-20              | Acc:  50.00% | Samples: 2
-21              | Acc: 100.00% | Samples: 2
-22              | Acc:   0.00% | Samples: 1
-23              | Acc: 100.00% | Samples: 3
-24              | Acc:  66.67% | Samples: 3
-25              | Acc: 100.00% | Samples: 2
-26              | Acc:   0.00% | Samples: 1
-27              | Acc:  66.67% | Samples: 3
-28              | Acc: 100.00% | Samples: 2
-29              | Acc: 100.00% | Samples: 2
-30              | Acc:   0.00% | Samples: 1
-31              | Acc:   0.00% | Samples: 1
-32              | Acc:   0.00% | Samples: 2
-33              | Acc: 100.00% | Samples: 3
-34              | Acc: 100.00% | Samples: 3
-35              | Acc:  33.33% | Samples: 3
-36              | Acc:   0.00% | Samples: 1
-37              | Acc: 100.00% | Samples: 3
-38              | Acc: 100.00% | Samples: 2
-39              | Acc:   0.00% | Samples: 2
-40              | Acc:   0.00% | Samples: 1
-41              | Acc:   0.00% | Samples: 1
-42              | Acc: 100.00% | Samples: 2
-43              | Acc:   0.00% | Samples: 2
-44              | Acc:  50.00% | Samples: 2
-45              | Acc: 100.00% | Samples: 2
-46              | Acc:   0.00% | Samples: 1
-47              | Acc:   0.00% | Samples: 1
-48              | Acc:   0.00% | Samples: 1
-49              | Acc:  50.00% | Samples: 2
-50              | Acc:   0.00% | Samples: 1
-51              | Acc:   0.00% | Samples: 1
-52              | Acc: 100.00% | Samples: 2
-53              | Acc:   0.00% | Samples: 1
-54              | Acc:   0.00% | Samples: 1
-55              | Acc: 100.00% | Samples: 2
-56              | Acc: 100.00% | Samples: 2
-57              | Acc:   0.00% | Samples: 1
-58              | Acc: 100.00% | Samples: 2
-59              | Acc:   0.00% | Samples: 1
-60              | Acc:   0.00% | Samples: 2
-61              | Acc:   0.00% | Samples: 1
-62              | Acc:   0.00% | Samples: 2
-63              | Acc: 100.00% | Samples: 3
-64              | Acc:  50.00% | Samples: 2
-65              | Acc:   0.00% | Samples: 3
-66              | Acc:   0.00% | Samples: 2
-67              | Acc:   0.00% | Samples: 3
-68              | Acc:   0.00% | Samples: 3
-69              | Acc:   0.00% | Samples: 2
-70              | Acc:  66.67% | Samples: 3
-71              | Acc:   0.00% | Samples: 1
-72              | Acc:   0.00% | Samples: 1
-73              | Acc:   0.00% | Samples: 1
-74              | Acc: 100.00% | Samples: 2
-75              | Acc: 100.00% | Samples: 3
-76              | Acc: 100.00% | Samples: 2
-77              | Acc:  66.67% | Samples: 3
-78              | Acc: 100.00% | Samples: 2
-79              | Acc:   0.00% | Samples: 3
-80              | Acc:  66.67% | Samples: 3
-81              | Acc:  66.67% | Samples: 3
-82              | Acc: 100.00% | Samples: 3
-83              | Acc: 100.00% | Samples: 3
-84              | Acc:  66.67% | Samples: 3
-85              | Acc:  33.33% | Samples: 3
-86              | Acc: 100.00% | Samples: 3
-87              | Acc:   0.00% | Samples: 2
-88              | Acc: 100.00% | Samples: 3
-89              | Acc:  66.67% | Samples: 3
-90              | Acc: 100.00% | Samples: 3
-91              | Acc:  50.00% | Samples: 2
-92              | Acc: 100.00% | Samples: 3
-93              | Acc: 100.00% | Samples: 3
-94              | Acc:  66.67% | Samples: 3
-95              | Acc: 100.00% | Samples: 3
-96              | Acc:  66.67% | Samples: 3
-97              | Acc: 100.00% | Samples: 3
-98              | Acc:  66.67% | Samples: 3
-99              | Acc:  66.67% | Samples: 3
--------------------------------------
-📝 Overall Results: Top-1: 56.04% | Top-5: 74.88%
-Test Accuracy: Top-1: 56.04% | Top-5: 74.88%
-✅ Training completed!
-🏆 Best Top-1 Accuracy: 57.49%
-🏆 Best Loss: 0.0299
-📈 Improvement from baseline: +8.21%
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs |  50.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  66.67% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |   0.00% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 62.80% | With Pairs: 75.16% | Without Pairs: 27.78%
+📉 NEW BEST Loss: 0.0070 - Model saved!
+Epoch 18/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [35:06<00:00,  1.14s/it]
+Epoch 18 | Loss: 0.0077 | LR: 5.45e-08
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:26<00:00,  3.97it/s] 
+
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  64.73% |  78.26% |      207
+with_pairs      |  77.78% |  92.16% |      153
+without_pairs   |  27.78% |  38.89% |       54
+==================================================
+
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |  50.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs |  50.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs | 100.00% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  66.67% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |  33.33% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  33.33% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 64.73% | With Pairs: 77.78% | Without Pairs: 27.78%
+🏆 NEW BEST Overall Top-1: 64.73% - Model saved!
+Epoch 19/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [37:09<00:00,  1.21s/it]
+Epoch 19 | Loss: 0.0065 | LR: 2.45e-08
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:29<00:00,  3.48it/s] 
+
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  64.25% |  77.29% |      207
+with_pairs      |  76.47% |  90.85% |      153
+without_pairs   |  29.63% |  38.89% |       54
+==================================================
+
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs | 100.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  33.33% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  66.67% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs | 100.00% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 64.25% | With Pairs: 76.47% | Without Pairs: 29.63%
+📉 NEW BEST Loss: 0.0065 - Model saved!
+Epoch 20/20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1850/1850 [39:06<00:00,  1.27s/it] 
+Epoch 20 | Loss: 0.0072 | LR: 6.16e-09
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:32<00:00,  3.18it/s]
+
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  63.77% |  76.33% |      207
+with_pairs      |  75.82% |  90.20% |      153
+without_pairs   |  29.63% |  37.04% |       54
+==================================================
+
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs | 100.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  33.33% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  33.33% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs | 100.00% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+📊 Test Accuracy - Overall: 63.77% | With Pairs: 75.82% | Without Pairs: 29.63%
+
+============================================================
+🎯 FINAL TRAINING SUMMARY
+============================================================
+✅ Loaded best model for final evaluation
+📊 Loaded 60 classes with pairs
+📊 Loaded 40 classes without pairs
+Embedding Extraction: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:26<00:00,  3.98it/s] 
+
+🌳 Detailed Test Evaluation:
+==================================================
+Category        | Top-1    | Top-5    | Samples
+--------------------------------------------------
+overall         |  63.77% |  76.81% |      207
+with_pairs      |  76.47% |  90.85% |      153
+without_pairs   |  27.78% |  37.04% |       54
+==================================================
+
+📊 Per-Class Top-1 Accuracy:
+Class           | Type         | Acc      | Samples
+--------------------------------------------------
+0               | without_pairs |   0.00% |       1
+1               | with_pairs   |   0.00% |       2
+2               | without_pairs |   0.00% |       1
+3               | with_pairs   | 100.00% |       3
+4               | without_pairs |   0.00% |       2
+5               | with_pairs   | 100.00% |       2
+6               | without_pairs |   0.00% |       1
+7               | without_pairs |   0.00% |       1
+8               | without_pairs |   0.00% |       1
+9               | with_pairs   | 100.00% |       2
+10              | without_pairs |   0.00% |       1
+11              | without_pairs | 100.00% |       2
+12              | with_pairs   | 100.00% |       3
+13              | without_pairs |   0.00% |       1
+14              | without_pairs |   0.00% |       1
+15              | without_pairs |   0.00% |       1
+16              | with_pairs   | 100.00% |       2
+17              | with_pairs   |   0.00% |       3
+18              | without_pairs |   0.00% |       1
+19              | with_pairs   | 100.00% |       3
+20              | with_pairs   |   0.00% |       2
+21              | with_pairs   | 100.00% |       2
+22              | without_pairs |   0.00% |       1
+23              | with_pairs   | 100.00% |       3
+24              | with_pairs   | 100.00% |       3
+25              | with_pairs   | 100.00% |       2
+26              | without_pairs |   0.00% |       1
+27              | with_pairs   |  66.67% |       3
+28              | with_pairs   | 100.00% |       2
+29              | without_pairs | 100.00% |       2
+30              | without_pairs |   0.00% |       1
+31              | without_pairs |   0.00% |       1
+32              | with_pairs   |   0.00% |       2
+33              | with_pairs   | 100.00% |       3
+34              | with_pairs   | 100.00% |       3
+35              | with_pairs   |  66.67% |       3
+36              | without_pairs |   0.00% |       1
+37              | with_pairs   | 100.00% |       3
+38              | without_pairs | 100.00% |       2
+39              | with_pairs   |   0.00% |       2
+40              | without_pairs |   0.00% |       1
+41              | without_pairs |   0.00% |       1
+42              | with_pairs   | 100.00% |       2
+43              | without_pairs |  50.00% |       2
+44              | with_pairs   |   0.00% |       2
+45              | with_pairs   | 100.00% |       2
+46              | without_pairs |   0.00% |       1
+47              | without_pairs |   0.00% |       1
+48              | without_pairs |   0.00% |       1
+49              | with_pairs   |  50.00% |       2
+50              | without_pairs |   0.00% |       1
+51              | without_pairs |   0.00% |       1
+52              | with_pairs   | 100.00% |       2
+53              | without_pairs |   0.00% |       1
+54              | without_pairs |   0.00% |       1
+55              | with_pairs   | 100.00% |       2
+56              | with_pairs   | 100.00% |       2
+57              | without_pairs |   0.00% |       1
+58              | with_pairs   | 100.00% |       2
+59              | without_pairs |   0.00% |       1
+60              | with_pairs   |   0.00% |       2
+61              | without_pairs |   0.00% |       1
+62              | with_pairs   | 100.00% |       2
+63              | without_pairs |  66.67% |       3
+64              | with_pairs   | 100.00% |       2
+65              | with_pairs   |  66.67% |       3
+66              | with_pairs   |   0.00% |       2
+67              | with_pairs   |   0.00% |       3
+68              | with_pairs   |   0.00% |       3
+69              | with_pairs   |   0.00% |       2
+70              | with_pairs   |  66.67% |       3
+71              | without_pairs |   0.00% |       1
+72              | without_pairs |   0.00% |       1
+73              | without_pairs |   0.00% |       1
+74              | without_pairs | 100.00% |       2
+75              | with_pairs   | 100.00% |       3
+76              | with_pairs   | 100.00% |       2
+77              | without_pairs |  66.67% |       3
+78              | with_pairs   | 100.00% |       2
+79              | without_pairs |   0.00% |       3
+80              | with_pairs   | 100.00% |       3
+81              | with_pairs   |  66.67% |       3
+82              | without_pairs |  66.67% |       3
+83              | with_pairs   | 100.00% |       3
+84              | with_pairs   |  66.67% |       3
+85              | with_pairs   | 100.00% |       3
+86              | with_pairs   | 100.00% |       3
+87              | with_pairs   |   0.00% |       2
+88              | with_pairs   | 100.00% |       3
+89              | with_pairs   | 100.00% |       3
+90              | with_pairs   | 100.00% |       3
+91              | with_pairs   | 100.00% |       2
+92              | with_pairs   | 100.00% |       3
+93              | with_pairs   | 100.00% |       3
+94              | with_pairs   | 100.00% |       3
+95              | with_pairs   | 100.00% |       3
+96              | with_pairs   |  66.67% |       3
+97              | with_pairs   | 100.00% |       3
+98              | with_pairs   |  66.67% |       3
+99              | with_pairs   | 100.00% |       3
+==================================================
+🏆 Best Model Performance:
+   Overall Top-1:     63.77%
+   With Pairs Top-1:  76.47%
+   Without Pairs Top-1: 27.78%
+   Overall Top-5:     76.81%
+📈 Improvement from baseline: +18.84%
+📉 Best Loss: 0.0065
+============================================================
