@@ -51,7 +51,7 @@ def evaluate_batched(
         # .../train/<domain>/<class_id>/filename
         parts = p.replace("\\", "/").split("/")
         try:
-            dom = parts[-3]
+            # dom = parts[-3]  # domain is not needed here
             cid = parts[-2]
         except Exception:
             return -1
@@ -61,33 +61,16 @@ def evaluate_batched(
     correct1 = 0
     correct5 = 0
 
-    batch = []
-    batch_meta = []  # (path, true_idx)
-    for path in image_paths:
-        try:
-            x = _load_image(path, preprocess)
-        except Exception:
-            continue
-        t = infer_true_idx(path)
-        batch.append(x)
-        batch_meta.append((path, t))
-        if len(batch) >= img_batch:
-            _flush()
-            batch, batch_meta = [], []
-    if batch:
-        _flush()
-
-    def finalize():
-        top1 = 100.0 * correct1 / max(1, total)
-        top5 = 100.0 * correct5 / max(1, total)
-        return top1, top5, total, conf, details
+    # --- define helpers BEFORE first use ---
 
     def _encode(xb: torch.Tensor) -> torch.Tensor:
         z = _encode_any(model, xb)           # [B,D]
         return z
 
-    def _flush():
+    def _flush(batch, batch_meta):
         nonlocal correct1, correct5, total, details, conf
+        if not batch:
+            return
         xb = torch.stack(batch, 0).to(device)     # [B,3,H,W]
         z = _encode(xb)                            # [B,D]
         # similarity to prototypes
@@ -115,5 +98,26 @@ def evaluate_batched(
             if return_details:
                 details.append((path, t, p, topk, scores))
 
-    # call finalize at the end
-    return finalize()
+    def _finalize():
+        top1 = 100.0 * correct1 / max(1, total)
+        top5 = 100.0 * correct5 / max(1, total)
+        return top1, top5, total, conf, details
+
+    # --- batching loop ---
+    batch = []
+    batch_meta = []  # (path, true_idx)
+    for path in image_paths:
+        try:
+            x = _load_image(path, preprocess)
+        except Exception:
+            continue
+        t = infer_true_idx(path)
+        batch.append(x)
+        batch_meta.append((path, t))
+        if len(batch) >= img_batch:
+            _flush(batch, batch_meta)
+            batch, batch_meta = [], []
+    if batch:
+        _flush(batch, batch_meta)
+
+    return _finalize()

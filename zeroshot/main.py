@@ -78,13 +78,16 @@ def main():
     print(f"🖼️ Scanning images in: train/{args.domain}")
     samples = collect_images(args.data_root, args.domain)
 
+    # --- FIX: evaluate_batched expects a list of image PATHS (strings), not (path, class_id) tuples ---
+    image_paths = [p for p, _ in samples]  # <--- key fix
+
     # ===== Evaluate (cosine sim to prototypes) =====
     print("🚀 Running prototype zero-shot inference …")
     t0 = time.time()
     # We pass `prototypes` in place of "text_cls_feats" and set use_logit_scale=False
     top1, top5, n, conf, details = evaluate_batched(
         model, preprocess, device,
-        samples, cls2idx, prototypes,
+        image_paths, cls2idx, prototypes,
         img_batch=max(1, args.img_batch),
         use_logit_scale=False,
         want_confusion=True,

@@ -83,7 +83,8 @@ def build_class_prototypes(
         protos.append(z)
 
     # replace missing with zeros then stack
-    D = protos[0].shape[-1] if any(p is not None for p in protos) else 0
+    first_valid = next((p for p in protos if p is not None), None)
+    D = first_valid.shape[-1] if first_valid is not None else 0
     out = []
     for p in protos:
         if p is None:

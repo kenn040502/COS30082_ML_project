@@ -1,41 +1,66 @@
-# ==== Zero-Shot Eval — Copy/Paste Commands (PowerShell) ====
+# ===== 0) (Optional) Install minimal deps =====
+pip install torch torchvision timm pillow matplotlib numpy ftfy regex
 
-# 0) Install minimal dependencies (in your venv if you use one)
-pip install torch torchvision timm pillow matplotlib numpy
-
-# 1) Set paths (edit these to your machine)
+# ===== 1) Set paths (EDIT these) =====
 $ROOT  = "C:\Users\User\Documents\GitHub\COS30082_ML_project\AML_project_herbarium_dataset"
-$PROTO = "zero_shot_checkpoints\prototypes_089aa5cdaa75694b.pt"
 $OUT   = "zero_shot_results\report_run"
 
-# 2) (Re)build prototypes if classes changed
+# ===== 2) Build herbarium prototypes (via zeroshot.main) =====
+# This will also run a quick eval on the chosen domain (photo is typical target)
 python -m zeroshot.main --data-root "$ROOT" `
+  --domain photo `
   --model vit_base_patch14_reg4_dinov2.lvd142m `
-  --save-proto "$PROTO"
+  --img-batch 8 `
+  --save-confusion --save-mistakes --mistakes-limit 200
 
-# 3) Full evaluation (unpaired + paired if pairs.csv exists)
+# After this, a prototype file like zero_shot_checkpoints\prototypes_<hash>.pt exists.
+# Pick the newest one:
+$PROTO = (Get-ChildItem "zero_shot_checkpoints\prototypes_*.pt" |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+
+# (Alternatively, you can read it from summary JSON:
+# $sum = Get-Content "zero_shot_results\summary_photo.json" | ConvertFrom-Json
+# $PROTO = $sum.prototype_ckpt )
+
+# ===== 3) Full evaluation suite (unpaired; paired auto-included if list\pairs.csv exists) =====
 python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
   --model vit_base_patch14_reg4_dinov2.lvd142m `
   --img-batch 8 `
   --outdir "$OUT"
 
-# 4) Safer settings for RTX 4060
-python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
-  --model vit_base_patch14_reg4_dinov2.lvd142m `
-  --img-batch 6 `
-  --outdir "$OUT\cool"
+# (Cooler / lower VRAM for RTX 4060)
+# python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+#   --model vit_base_patch14_reg4_dinov2.lvd142m --img-batch 6 --outdir "$OUT\cool"
 
-# 5) CPU mode
-python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
-  --model vit_base_patch14_reg4_dinov2.lvd142m `
-  --device cpu `
-  --img-batch 4 `
-  --outdir "$OUT\cpu"
+# (CPU mode)
+# python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+#   --model vit_base_patch14_reg4_dinov2.lvd142m --device cpu --img-batch 4 --outdir "$OUT\cpu"
 
-# 6) Unpaired-only (temporarily hide pairs.csv)
-Rename-Item "$ROOT\list\pairs.csv" "pairs.skip.csv"
-python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+# ===== 4) Rank & materialize Top-1 / Top-2 / Top-3 prototypes =====
+python -m zeroshot.rank_checkpoints `
+  --summary-file "$OUT\GLOBAL_SUMMARY.json" `
+  --proto-file   "$PROTO" `
+  --model-name   "vit_base_patch14_reg4_dinov2.lvd142m" `
+  --metric       mean `
+  --leaderboard-db "zero_shot_checkpoints\leaderboard.json" `
+  --dst-dir        "zero_shot_checkpoints\ranked"
+
+# ===== 5) Single-image test (CLI) =====
+# REQUIRED: --image
+python -m zeroshot.predict_one --data-root "$ROOT" `
+  --proto-file "$PROTO" `
   --model vit_base_patch14_reg4_dinov2.lvd142m `
-  --img-batch 8 `
-  --outdir "$OUT\unpaired_only"
-Rename-Item "$ROOT\list\pairs.skip.csv" "pairs.csv"
+  --image "<absolute-or-relative-path-to-an-image>.jpg" `
+  --topk 5
+
+# ===== 6) GUI thumbnail preview =====
+python -m zeroshot.gui_preview --data-root "$ROOT" `
+  --proto-file "$PROTO" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --topk 5
+
+# ===== 7) Force UNPAIRED ONLY run (temporarily hide pairs.csv) =====
+# Rename-Item "$ROOT\list\pairs.csv" "pairs.skip.csv"
+# python -m zeroshot.eval_suite --data-root "$ROOT" --proto-file "$PROTO" `
+#   --model vit_base_patch14_reg4_dinov2.lvd142m --img-batch 8 --outdir "$OUT\unpaired_only"
+# Rename-Item "$ROOT\list\pairs.skip.csv" "pairs.csv"
