@@ -2,35 +2,29 @@
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install timm pillow matplotlib numpy tqdm
 
-# 1) Unzip and place the folder so Python can import it (same level as your project root works).
-#    For example, alongside your existing repo root.
-
-# 2) Paths
 $ROOT = "C:\Users\User\Documents\GitHub\COS30082_ML_project\AML_project_herbarium_dataset"
 
-# 3) Train (5-shot, herbarium -> photo)
+# TRAIN with ViT-S
 python -m fewshot_triplet.train `
   --data-root "$ROOT" `
-  --shots-per-class 5 `
+  --shots-per-class 10 `
   --train-domain herbarium `
   --eval-domain  photo `
-  --epochs 10 `
-  --outdir "fewshot_results\run_5shot"
+  --model vit_small_patch14_reg4_dinov2.lvd142m `
+  --device cuda `
+  --epochs 50 `
+  --batch-train 32 `
+  --lr 1e-3 `
+  --margin 0.3 `
+  --outdir "fewshot_results\run_5shot_dinoS"
 
-# 4) Evaluate & make report (PNG, CSV, JSON/MD)
+# EVAL (must use same model name)
 python -m fewshot_triplet.eval `
   --data-root "$ROOT" `
   --shots-per-class 5 `
   --train-domain herbarium `
   --eval-domain  photo `
-  --head-ckpt  "fewshot_results\run_5shot\fewshot_triplet_head.pt" `
-  --outdir     "fewshot_results\report_5shot"
-
-
-python -m fewshot_triplet.eval `
-  --data-root "$ROOT" `
-  --shots-per-class 5 `
-  --train-domain herbarium `
-  --eval-domain  photo `
-  --head-ckpt  "fewshot_results\run_5shot\ranked\head_rank1.pt" `
-  --outdir     "fewshot_results\report_5shot_best"
+  --model vit_small_patch14_reg4_dinov2.lvd142m `
+  --device cuda `
+  --head-ckpt "fewshot_results\run_5shot_dinoS\ranked\head_rank1.pt" `
+  --outdir "fewshot_results\report_5shot_dinoS"
