@@ -1,0 +1,34 @@
+Evaluating on 207/207 test images; skipped 0 unseen-species images.
+Top-1 accuracy: 0.7633
+Top-5 accuracy: 0.8309
+
+=== BASELINE 2: Pair Split Evaluation ===
+ALL top-1: 0.7633  (N=207)
+ALL top-5: 0.8309  (N=207)
+
+WITH-PAIR top-1: 0.9804  (N=153)
+WITH-PAIR top-5: 0.9935  (N=153)
+
+WITHOUT-PAIR top-1: 0.1481  (N=54)
+WITHOUT-PAIR top-5: 0.3704  (N=54)
+
+=== BASELINE 2: Model Training Summary (train_sklearn.py) ===
+
+Classifiers evaluated:
+
+logreg (Logistic Regression)
+Top-1 accuracy: 0.8775
+Top-5 accuracy: 0.9597
+
+linsvc (Linear SVM)
+Top-1 accuracy: 0.8765
+Top-5 accuracy: 0.9515
+
+knn (k-Nearest Neighbors)
+Top-1 accuracy: 0.7799
+Top-5 accuracy: 0.9184
+
+Best model:
+logreg (Logistic Regression)
+Top-1 accuracy: 0.8775
+Top-5 accuracy: 0.9597
