@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from tqdm import tqdm  # <<< added
 
 from dino_model import load_dino
 
@@ -100,7 +101,8 @@ def train_main(args):
         total_loss = total_cls = total_trip = total_da = 0.0
         n_batches = 0
 
-        for batch in dl_train:
+        # ===== TRAIN LOOP with tqdm =====
+        for batch in tqdm(dl_train, desc=f"Epoch {ep}/{args.epochs}", ncols=100):
             x = batch.x.to(device)
             y = batch.y.to(device)
             d_label = batch.d.to(device)
@@ -147,11 +149,11 @@ def train_main(args):
         scheduler.step()
         lr_now = scheduler.get_last_lr()[0]
 
-        # ----- Validation (photo only) -----
+        # ===== VALIDATION LOOP with tqdm =====
         proj.eval(); clf.eval()
         correct = total = 0
         with torch.no_grad():
-            for batch in dl_val:
+            for batch in tqdm(dl_val, desc="Validating", ncols=100):
                 x = batch.x.to(device)
                 y = batch.y.to(device)
                 h = backbone(x)
@@ -196,13 +198,13 @@ def train_main(args):
             }, best_ckpt)
             print(f"[train] 🔥 New best model saved to {best_ckpt}")
 
-    # ----- Save log -----
+    # ===== Save log =====
     log_path = os.path.join(args.outdir, "train_log.json")
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
     print(f"[train] Log saved to {log_path}")
 
-    # ----- Plots -----
+    # ===== Plots =====
     epochs = history["epoch"]
 
     plt.figure(figsize=(7,5))

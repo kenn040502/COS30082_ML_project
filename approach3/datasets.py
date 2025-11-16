@@ -78,13 +78,23 @@ def build_class_mapping(data_root: str) -> tuple[list[str], dict[str, int]]:
 
 def build_paired_set(data_root: str) -> set[str]:
     """
-    Load class IDs that have herbarium-photo pairs from list/pairs.csv
+    Load class IDs that have herbarium-field training pairs.
+    Uses list/class_with_pairs.txt instead of pairs.csv.
     """
-    paired_cids: set[str] = set()
-    pairs = load_pairs_csv(data_root)  # (photo_path, herb_path, class_id)
-    for _, _, cid in pairs:
-        paired_cids.add(cid)
-    return paired_cids
+    path = os.path.join(data_root, "list", "class_with_pairs.txt")
+    paired = set()
+
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"Missing: {path}")
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            cid = line.strip()
+            if cid:
+                paired.add(cid)
+
+    return paired
+
 
 def make_train_val_samples(
     data_root: str,

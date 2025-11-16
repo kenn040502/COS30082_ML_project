@@ -2,13 +2,13 @@ Approach 3 – Domain-adaptive metric learning with DINOv2
 Checkpoint: runs_approach3\best_model.pt
 
 OVERALL (test/photo): N=207
-  Top-1: 74.88%
-  Top-5: 89.37%
+  Top-1: 77.78%
+  Top-5: 88.89%
 
-WITH PAIRS classes: N=0
-  Top-1: 0.00%
-  Top-5: 0.00%
+WITH PAIRS classes: N=153
+  Top-1: 94.12%
+  Top-5: 98.69%
 
-WITHOUT PAIRS classes: N=207
-  Top-1: 74.88%
-  Top-5: 89.37%
+WITHOUT PAIRS classes: N=54
+  Top-1: 31.48%
+  Top-5: 61.11%
