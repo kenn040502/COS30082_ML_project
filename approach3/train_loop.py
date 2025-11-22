@@ -6,6 +6,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # <<< added
+from torch.cuda.amp import GradScaler, autocast
+from torch.optim.lr_scheduler import OneCycleLR
+import torchvision.transforms as T
+from torch.utils.data import WeightedRandomSampler
 
 from dino_model import load_dino
 
@@ -17,7 +21,7 @@ from .datasets import (
     build_paired_set,
     make_train_val_samples,
 )
-from .losses import compute_class_weights, triplet_loss_random
+from .losses import compute_class_weights, triplet_loss_random, batch_hard_triplet_loss
 
 def set_seed(seed: int):
     random.seed(seed)
@@ -53,15 +57,44 @@ def train_main(args):
     in_dim = backbone.num_features if hasattr(backbone, "num_features") else 768
 
     # ----- Datasets & loaders -----
-    ds_train = PlantDataset(train_samples, preprocess)
-    ds_val = PlantDataset(val_samples, preprocess)
+    # Build transforms: optionally add augmentation before the backbone preprocess
+    if getattr(args, "augment", False):
+        train_transform = T.Compose(
+            [
+                T.RandomResizedCrop(224, scale=(0.8, 1.0)),
+                T.RandomHorizontalFlip(),
+                T.ColorJitter(0.2, 0.2, 0.2, 0.05),
+                T.RandomGrayscale(p=0.05),
+                T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),
+                preprocess,  # DINO preprocess (resize / to tensor / normalize)
+            ]
+        )
+    else:
+        train_transform = preprocess
+
+    val_transform = preprocess
+
+    ds_train = PlantDataset(train_samples, train_transform)
+    ds_val = PlantDataset(val_samples, val_transform)
+
+    # Optionally use WeightedRandomSampler to counter class imbalance
+    sampler = None
+    if getattr(args, "use_sampler", False):
+        # compute class counts from train_samples
+        counts = {}
+        for _, y, _, _ in train_samples:
+            counts[y] = counts.get(y, 0) + 1
+        sample_weights = [1.0 / counts[s[1]] for s in train_samples]
+        sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
 
     dl_train = DataLoader(
         ds_train,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=(sampler is None),
+        sampler=sampler,
         num_workers=args.num_workers,
         pin_memory=True,
+        persistent_workers=(args.num_workers > 0),
         collate_fn=collate_train,
     )
     dl_val = DataLoader(
@@ -79,9 +112,31 @@ def train_main(args):
     clf = SpeciesClassifier(emb_dim, num_classes).to(device)
     dom = DomainDiscriminator(emb_dim).to(device)
 
-    params = list(proj.parameters()) + list(clf.parameters()) + list(dom.parameters())
+    # prepare parameter groups; optionally include backbone for finetuning
+    head_params = list(proj.parameters()) + list(clf.parameters()) + list(dom.parameters())
+    if getattr(args, "finetune_backbone", False):
+        # unfreeze backbone
+        for p in backbone.parameters():
+            p.requires_grad = True
+        backbone_params = [p for p in backbone.parameters() if p.requires_grad]
+        params = [
+            {"params": head_params, "lr": args.lr},
+            {"params": backbone_params, "lr": getattr(args, "backbone_lr", args.lr * 0.1)},
+        ]
+    else:
+        params = head_params
+
     opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
+
+    # scheduler: OneCycle per-iteration or fallback Cosine per-epoch
+    use_onecycle = getattr(args, "use_onecycle", False)
+    if use_onecycle:
+        steps_per_epoch = max(1, len(dl_train))
+        scheduler = OneCycleLR(opt, max_lr=args.lr, steps_per_epoch=steps_per_epoch, epochs=args.epochs)
+        step_scheduler_per_batch = True
+    else:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
+        step_scheduler_per_batch = False
 
     history = {
         "epoch": [],
@@ -96,6 +151,8 @@ def train_main(args):
     best_val_acc = 0.0
     best_ckpt = None
 
+    scaler = GradScaler() if (getattr(args, "amp", False) and device.type == "cuda") else None
+
     for ep in range(1, args.epochs + 1):
         proj.train(); clf.train(); dom.train()
         total_loss = total_cls = total_trip = total_da = 0.0
@@ -108,20 +165,71 @@ def train_main(args):
             d_label = batch.d.to(device)
             paired_flag = batch.paired.to(device)
 
-            # backbone frozen
-            with torch.no_grad():
+            # backbone forward (frozen or trainable depending on args)
+            if getattr(args, "finetune_backbone", False):
                 h = backbone(x)
-                if h.dim() > 2:
-                    h = h.mean(dim=tuple(range(2, h.dim())))
+            else:
+                with torch.no_grad():
+                    h = backbone(x)
 
-            z = proj(h)
-            logits = clf(z)
+            if h.dim() > 2:
+                h = h.mean(dim=tuple(range(2, h.dim())))
 
-            # classification
-            loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+            # use AMP when available
+            if scaler is not None:
+                with autocast():
+                    z = proj(h)
+                    logits = clf(z)
+                    # classification
+                    loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+                    # batch-hard triplet
+                    loss_trip = batch_hard_triplet_loss(z, y, margin=args.margin)
+                    # domain adversarial (only on paired classes)
+                    mask = (paired_flag > 0.5)
+                    if mask.any():
+                        z_p = z[mask]
+                        d_p = d_label[mask]
+                        dom_logits = dom(z_p, lambd=args.da_lambda)
+                        loss_da = F.cross_entropy(dom_logits, d_p)
+                    else:
+                        loss_da = torch.tensor(0.0, device=device)
+                    loss = args.w_cls * loss_cls + args.w_triplet * loss_trip + args.w_da * loss_da
 
-            # triplet
-            loss_trip = triplet_loss_random(z, y, margin=args.margin)
+                opt.zero_grad(set_to_none=True)
+                scaler.scale(loss).backward()
+                # unscale before clipping
+                scaler.unscale_(opt)
+                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                scaler.step(opt)
+                scaler.update()
+            else:
+                z = proj(h)
+                logits = clf(z)
+                # classification
+                loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+                # batch-hard triplet
+                loss_trip = batch_hard_triplet_loss(z, y, margin=args.margin)
+
+                # domain adversarial (only on paired classes)
+                mask = (paired_flag > 0.5)
+                if mask.any():
+                    z_p = z[mask]
+                    d_p = d_label[mask]
+                    dom_logits = dom(z_p, lambd=args.da_lambda)
+                    loss_da = F.cross_entropy(dom_logits, d_p)
+                else:
+                    loss_da = torch.tensor(0.0, device=device)
+
+                loss = args.w_cls * loss_cls + args.w_triplet * loss_trip + args.w_da * loss_da
+
+                opt.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                opt.step()
+
+            # step scheduler per batch if OneCycle
+            if step_scheduler_per_batch:
+                scheduler.step()
 
             # domain adversarial (only on paired classes)
             mask = (paired_flag > 0.5)
@@ -138,16 +246,21 @@ def train_main(args):
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(params, 5.0)
-            opt.step()
-
             total_loss += loss.item()
             total_cls += loss_cls.item()
             total_trip += loss_trip.item()
             total_da += loss_da.item()
             n_batches += 1
 
-        scheduler.step()
-        lr_now = scheduler.get_last_lr()[0]
+        # step scheduler per epoch if not using OneCycle
+        if not step_scheduler_per_batch:
+            scheduler.step()
+        # get learning rate (take first param group)
+        lr_now = None
+        try:
+            lr_now = opt.param_groups[0]["lr"]
+        except Exception:
+            lr_now = scheduler.get_last_lr()[0]
 
         # ===== VALIDATION LOOP with tqdm =====
         proj.eval(); clf.eval()

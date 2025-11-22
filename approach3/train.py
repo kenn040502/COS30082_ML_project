@@ -439,6 +439,16 @@ def parse_args():
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--emb-dim", type=int, default=512)
     p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--amp", action="store_true", help="Enable mixed precision (AMP)")
+    p.add_argument("--use-onecycle", action="store_true", dest="use_onecycle",
+                   help="Use OneCycleLR scheduler (per-iteration)")
+    p.add_argument("--finetune-backbone", action="store_true", dest="finetune_backbone",
+                   help="Unfreeze entire backbone and fine-tune with smaller LR")
+    p.add_argument("--backbone-lr", type=float, default=1e-4,
+                   help="Learning rate for backbone when finetuning")
+    p.add_argument("--augment", action="store_true", help="Enable train-time data augmentation")
+    p.add_argument("--use-sampler", action="store_true", dest="use_sampler",
+                   help="Use WeightedRandomSampler to handle class imbalance")
     p.add_argument("--margin", type=float, default=0.3, help="Triplet margin")
     p.add_argument("--w-cls", type=float, default=1.0, dest="w_cls")
     p.add_argument("--w-triplet", type=float, default=0.5, dest="w_triplet")
