@@ -30,7 +30,60 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
+import numpy as np
 import matplotlib.pyplot as plt
+
+try:
+    from tqdm import tqdm
+except Exception:
+    # fallback: no-progress iterator
+    def tqdm(x, **kwargs):
+        return x
+
+
+def mixup_data(x, y, alpha=0.2, device=None):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha <= 0:
+        return x, y, 1.0, y
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, lam, y_b
+
+
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+
+def cutmix_data(x, y, alpha=1.0, device=None):
+    if alpha <= 0:
+        return x, y, 1.0, y
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(device)
+    bbx1, bby1, bbx2, bby2 = rand_bbox(x.size(), lam)
+    x[:, :, bbx1:bbx2, bby1:bby2] = x[index, :, bbx1:bbx2, bby1:bby2]
+    # adjust lambda to exact area
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x.size()[-1] * x.size()[-2]))
+    y_a, y_b = y, y[index]
+    return x, y_a, lam, y_b
 
 from dino_model import load_dino
 from data import build_class_mapping_from_folders, collect_images
@@ -267,15 +320,72 @@ def train(args):
     backbone, preprocess = load_dino(args.model, device)
     in_dim = backbone.num_features if hasattr(backbone, "num_features") else 768
 
+    # Performance: enable cuDNN benchmark when using GPU for fixed-size inputs
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+
+    # Optional train-time augmentations (applied before the timm preprocess)
+    try:
+        from torchvision import transforms as T
+        if args.augment:
+            # Configurable augmentation strength (light or strong)
+            size = 518
+            if getattr(args, 'aug_strength', 'strong') == 'light':
+                aug_list = [
+                    T.RandomResizedCrop((size, size), scale=(0.9, 1.0)),
+                    T.RandomHorizontalFlip(p=0.5),
+                    T.ColorJitter(0.2, 0.2, 0.2, 0.05),
+                ]
+            else:
+                aug_list = [
+                    T.RandomResizedCrop((size, size), scale=(0.8, 1.0)),
+                    T.RandomHorizontalFlip(p=0.5),
+                    T.RandomApply([T.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+                ]
+                try:
+                    from torchvision.transforms import RandAugment
+                    aug_list.append(RandAugment(num_ops=2, magnitude=9))
+                except Exception:
+                    pass
+
+            # RandomErasing must be applied after preprocess because it expects a tensor
+            post_pre_list = []
+            try:
+                post_pre_list.append(T.RandomErasing(p=0.25, scale=(0.02, 0.33), ratio=(0.3, 3.3)))
+            except Exception:
+                # RandomErasing may not be available in older torchvision versions
+                pass
+
+            aug = T.Compose(aug_list)
+            # apply aug (PIL) -> preprocess (to tensor & normalize) -> post_pre_list (tensor ops)
+            train_transform = T.Compose([aug, preprocess] + post_pre_list)
+        else:
+            train_transform = preprocess
+    except Exception:
+        # If torchvision isn't available or composition fails, fall back to preprocess
+        train_transform = preprocess
+
     # Datasets & loaders
-    ds_train = PlantDataset(train_samples, preprocess)
+    ds_train = PlantDataset(train_samples, train_transform)
     ds_val = PlantDataset(val_samples, preprocess)
-    dl_train = DataLoader(ds_train, batch_size=args.batch_size, shuffle=True,
-                          num_workers=args.num_workers, pin_memory=True,
-                          collate_fn=collate_fn)
-    dl_val = DataLoader(ds_val, batch_size=args.batch_size, shuffle=False,
-                        num_workers=args.num_workers, pin_memory=True,
-                        collate_fn=collate_fn)
+
+    pin_memory = True if device.type == "cuda" else False
+    persistent = True if args.num_workers > 0 else False
+
+    # improve throughput with prefetch_factor when workers > 0
+    dl_train_kwargs = dict(batch_size=args.batch_size, shuffle=True,
+                           num_workers=args.num_workers, pin_memory=pin_memory,
+                           persistent_workers=persistent, collate_fn=collate_fn)
+    dl_val_kwargs = dict(batch_size=args.batch_size, shuffle=False,
+                         num_workers=args.num_workers, pin_memory=pin_memory,
+                         persistent_workers=persistent, collate_fn=collate_fn)
+
+    if args.num_workers > 0:
+        dl_train_kwargs["prefetch_factor"] = 2
+        dl_val_kwargs["prefetch_factor"] = 2
+
+    dl_train = DataLoader(ds_train, **dl_train_kwargs)
+    dl_val = DataLoader(ds_val, **dl_val_kwargs)
 
     # Heads
     emb_dim = args.emb_dim
@@ -301,47 +411,95 @@ def train(args):
     best_val_acc = 0.0
     best_ckpt = None
 
+    # mixed precision scaler (if requested and CUDA available)
+    use_amp = args.amp and (device.type == "cuda")
+    scaler = torch.cuda.amp.GradScaler() if use_amp else None
+
     for ep in range(1, args.epochs + 1):
         proj.train(); clf.train(); dom.train()
         total_loss = total_cls = total_trip = total_da = 0.0
         n_batches = 0
 
-        for batch in dl_train:
-            x, y, d_label, paired = batch.x.to(device), batch.y.to(device), batch.d.to(device), batch.paired.to(device)
-            # backbone features (frozen)
+        epoch_iter = tqdm(dl_train, desc=f"Train Epoch {ep}/{args.epochs}")
+        for batch in epoch_iter:
+            # move tensors (use non_blocking when pin_memory True)
+            non_blocking = pin_memory
+            x = batch.x.to(device, non_blocking=non_blocking)
+            y = batch.y.to(device, non_blocking=False)
+            d_label = batch.d.to(device, non_blocking=False)
+            paired = batch.paired.to(device, non_blocking=False)
+
+            # apply MixUp / CutMix on inputs if requested
+            mixed = False
+            # If both are enabled choose randomly per-batch to apply MixUp or CutMix
+            if getattr(args, 'cutmix', False) and getattr(args, 'mixup', False):
+                if random.random() < 0.5:
+                    x, y_a, lam, y_b = cutmix_data(x, y, alpha=args.cutmix_alpha, device=device)
+                else:
+                    x, y_a, lam, y_b = mixup_data(x, y, alpha=args.mixup_alpha, device=device)
+                mixed = True
+            elif getattr(args, 'cutmix', False):
+                x, y_a, lam, y_b = cutmix_data(x, y, alpha=args.cutmix_alpha, device=device)
+                mixed = True
+            elif getattr(args, 'mixup', False):
+                x, y_a, lam, y_b = mixup_data(x, y, alpha=args.mixup_alpha, device=device)
+                mixed = True
+
+            # backbone features (frozen) - compute under no_grad
             with torch.no_grad():
-                h = backbone(x)
+                if use_amp:
+                    # autocast okay inside no_grad for faster FP16 ops
+                    with torch.cuda.amp.autocast(enabled=True):
+                        h = backbone(x)
+                else:
+                    h = backbone(x)
                 if h.dim() > 2:
                     h = h.mean(dim=tuple(range(2, h.dim())))
-            z = proj(h)
 
-            logits = clf(z)
-            loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+            # forward (heads) with optional autocast
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                z = proj(h)
+                logits = clf(z)
+                if mixed:
+                    # for mixup/cutmix use blended classification loss and skip triplet/domain losses
+                    loss_cls = lam * F.cross_entropy(logits, y_a, weight=class_weights) + \
+                               (1.0 - lam) * F.cross_entropy(logits, y_b, weight=class_weights)
+                    loss_trip = torch.tensor(0.0, device=device)
+                    loss_da = torch.tensor(0.0, device=device)
+                else:
+                    loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+                    loss_trip = make_triplets(z, y, margin=args.margin)
 
-            loss_trip = make_triplets(z, y, margin=args.margin)
+                    # domain loss: only for classes that are in paired set (paired==1)
+                    mask = (paired > 0.5)
+                    if mask.any():
+                        z_paired = z[mask]
+                        d_paired = d_label[mask]
+                        dom_logits = dom(z_paired, lambd=args.da_lambda)
+                        loss_da = F.cross_entropy(dom_logits, d_paired)
+                    else:
+                        loss_da = torch.tensor(0.0, device=device)
 
-            # domain loss: only for classes that are in paired set (paired==1)
-            mask = (paired > 0.5)
-            if mask.any():
-                z_paired = z[mask]
-                d_paired = d_label[mask]
-                dom_logits = dom(z_paired, lambd=args.da_lambda)
-                loss_da = F.cross_entropy(dom_logits, d_paired)
-            else:
-                loss_da = torch.tensor(0.0, device=device)
-
-            loss = args.w_cls * loss_cls + args.w_triplet * loss_trip + args.w_da * loss_da
+                loss = args.w_cls * loss_cls + args.w_triplet * loss_trip + args.w_da * loss_da
 
             opt.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(params, 5.0)
-            opt.step()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                scaler.step(opt)
+                scaler.update()
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                opt.step()
 
-            total_loss += loss.item()
-            total_cls += loss_cls.item()
-            total_trip += loss_trip.item()
-            total_da += loss_da.item()
+            total_loss += float(loss.detach().cpu().item())
+            total_cls += float(loss_cls.detach().cpu().item())
+            total_trip += float(loss_trip.detach().cpu().item())
+            total_da += float(loss_da.detach().cpu().item())
             n_batches += 1
+            # update tqdm with losses
+            epoch_iter.set_postfix(loss=f"{total_loss/max(1,n_batches):.4f}", val_acc="?")
 
         scheduler.step()
         lr_now = scheduler.get_last_lr()[0]
@@ -349,17 +507,19 @@ def train(args):
         # Validation accuracy (photo domain)
         proj.eval(); clf.eval()
         correct = total = 0
+        val_iter = tqdm(dl_val, desc=f"Val Epoch {ep}/{args.epochs}")
         with torch.no_grad():
-            for batch in dl_val:
-                x, y = batch.x.to(device), batch.y.to(device)
+            for batch in val_iter:
+                x = batch.x.to(device, non_blocking=pin_memory)
+                y = batch.y.to(device)
                 h = backbone(x)
                 if h.dim() > 2:
                     h = h.mean(dim=tuple(range(2, h.dim())))
                 z = proj(h)
                 logits = clf(z)
                 pred = logits.argmax(dim=-1)
-                total += y.size(0)
-                correct += (pred == y).sum().item()
+                total += int(y.size(0))
+                correct += int((pred == y).sum().item())
         val_acc = 100.0 * correct / max(1, total)
 
         mean_loss = total_loss / max(1, n_batches)
@@ -435,7 +595,7 @@ def parse_args():
     p.add_argument("--data-root", required=True, help="Root of AML herbarium dataset")
     p.add_argument("--model", default="vit_base_patch14_reg4_dinov2.lvd142m",
                    help="timm model name for DINOv2 backbone")
-    p.add_argument("--epochs", type=int, default=20)
+    p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--emb-dim", type=int, default=512)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -447,6 +607,8 @@ def parse_args():
     p.add_argument("--backbone-lr", type=float, default=1e-4,
                    help="Learning rate for backbone when finetuning")
     p.add_argument("--augment", action="store_true", help="Enable train-time data augmentation")
+    p.add_argument("--aug-strength", choices=["light","strong"], default="strong",
+                   help="Augmentation strength when --augment is set")
     p.add_argument("--use-sampler", action="store_true", dest="use_sampler",
                    help="Use WeightedRandomSampler to handle class imbalance")
     p.add_argument("--margin", type=float, default=0.3, help="Triplet margin")
@@ -458,6 +620,10 @@ def parse_args():
     p.add_argument("--outdir", default="runs_approach3")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--num-workers", type=int, default=4)
+    p.add_argument("--mixup", action="store_true", help="Enable MixUp augmentation")
+    p.add_argument("--mixup-alpha", type=float, default=0.2, help="Alpha for MixUp Beta distribution")
+    p.add_argument("--cutmix", action="store_true", help="Enable CutMix augmentation")
+    p.add_argument("--cutmix-alpha", type=float, default=1.0, help="Alpha for CutMix Beta distribution")
     p.add_argument("--seed", type=int, default=42)
     return p.parse_args()
 
