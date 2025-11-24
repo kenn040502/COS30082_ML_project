@@ -1,0 +1,68 @@
+==============================
+📷 Test Evaluation (Photo Domain)
+==============================
+
+106023                    | Acc:  50.00% | Samples: 2
+106461                    | Acc:  66.67% | Samples: 3
+110432                    | Acc: 100.00% | Samples: 2
+121836                    | Acc:   0.00% | Samples: 2
+12518                     | Acc:  33.33% | Samples: 3
+127097                    | Acc: 100.00% | Samples: 2
+127151                    | Acc:   0.00% | Samples: 3
+12910                     | Acc:  66.67% | Samples: 3
+12922                     | Acc:   0.00% | Samples: 2
+129645                    | Acc:   0.00% | Samples: 2
+131079                    | Acc:   0.00% | Samples: 3
+131736                    | Acc:   0.00% | Samples: 3
+132107                    | Acc:   0.00% | Samples: 2
+132431                    | Acc:  66.67% | Samples: 3
+132476                    | Acc: 100.00% | Samples: 2
+13330                     | Acc: 100.00% | Samples: 2
+133595                    | Acc:  66.67% | Samples: 3
+133617                    | Acc:  33.33% | Samples: 3
+13370                     | Acc:  33.33% | Samples: 3
+138662                    | Acc:  66.67% | Samples: 3
+141068                    | Acc:   0.00% | Samples: 2
+142550                    | Acc: 100.00% | Samples: 2
+143496                    | Acc:  50.00% | Samples: 2
+14353                     | Acc:   0.00% | Samples: 2
+144394                    | Acc: 100.00% | Samples: 2
+148977                    | Acc:  50.00% | Samples: 2
+149919                    | Acc:  50.00% | Samples: 2
+150135                    | Acc:  50.00% | Samples: 2
+151469                    | Acc:  50.00% | Samples: 2
+15318                     | Acc: 100.00% | Samples: 2
+15355                     | Acc:  50.00% | Samples: 2
+156526                    | Acc:   0.00% | Samples: 2
+158341                    | Acc:   0.00% | Samples: 3
+158592                    | Acc:  50.00% | Samples: 2
+158653                    | Acc:   0.00% | Samples: 3
+158736                    | Acc:   0.00% | Samples: 3
+158793                    | Acc: 100.00% | Samples: 2
+158833                    | Acc:   0.00% | Samples: 3
+166822                    | Acc: 100.00% | Samples: 3
+166869                    | Acc: 100.00% | Samples: 2
+171727                    | Acc:   0.00% | Samples: 2
+173972                    | Acc:   0.00% | Samples: 3
+174017                    | Acc:  33.33% | Samples: 3
+177775                    | Acc:  33.33% | Samples: 3
+189669                    | Acc:   0.00% | Samples: 3
+191642                    | Acc:   0.00% | Samples: 3
+19165                     | Acc:  66.67% | Samples: 3
+192311                    | Acc:   0.00% | Samples: 2
+194035                    | Acc: 100.00% | Samples: 3
+19489                     | Acc: 100.00% | Samples: 3
+209328                    | Acc:  66.67% | Samples: 3
+211059                    | Acc:  50.00% | Samples: 2
+244705                    | Acc:  33.33% | Samples: 3
+248392                    | Acc:  33.33% | Samples: 3
+254180                    | Acc:  33.33% | Samples: 3
+275029                    | Acc: 100.00% | Samples: 3
+280085                    | Acc: 100.00% | Samples: 3
+280698                    | Acc:   0.00% | Samples: 3
+285398                    | Acc:  66.67% | Samples: 3
+29686                     | Acc:  33.33% | Samples: 3
+
+📊 Mean Per-Class Accuracy: 44.72%
+🎯 Overall Top-1 Accuracy: 43.79%
+🎯 Overall Top-5 Accuracy: 71.24%
