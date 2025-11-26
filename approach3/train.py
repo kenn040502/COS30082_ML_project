@@ -28,7 +28,7 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
@@ -84,6 +84,17 @@ def cutmix_data(x, y, alpha=1.0, device=None):
     lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x.size()[-1] * x.size()[-2]))
     y_a, y_b = y, y[index]
     return x, y_a, lam, y_b
+
+
+def focal_loss(logits: torch.Tensor, targets: torch.Tensor, gamma: float = 2.0, weight: torch.Tensor = None):
+    """Compute focal loss (multi-class) with optional class weights.
+    logits: (N,C), targets: (N,)
+    """
+    ce = F.cross_entropy(logits, targets, reduction='none', weight=weight)
+    probs = F.softmax(logits, dim=-1)
+    pt = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
+    loss = ((1.0 - pt) ** gamma) * ce
+    return loss.mean()
 
 from dino_model import load_dino
 from data import build_class_mapping_from_folders, collect_images
@@ -308,6 +319,35 @@ def train(args):
     class_weights = compute_class_weights(all_labels, num_classes).to(device)
     print("Class weights (first 10):", class_weights[:10].tolist())
 
+    # Compute raw per-class counts for optional class-balanced loss
+    counts = np.bincount(all_labels, minlength=num_classes).astype(float)
+    cb_weights = None
+    if getattr(args, 'class_balanced', False):
+        beta = float(getattr(args, 'cbeta', 0.9999))
+        # effective number per class (Cui et al.)
+        effective_num = 1.0 - np.power(beta, counts)
+        # avoid division by zero
+        effective_num[effective_num == 0] = 1.0
+        weights = (1.0 - beta) / effective_num
+        # normalize to have mean 1.0
+        weights = weights / np.mean(weights)
+        cb_weights = torch.tensor(weights, dtype=torch.float32).to(device)
+        print("Using class-balanced weights (first 10):", cb_weights[:10].tolist())
+
+    # Choose which weights to use for the classification loss.
+    # Default: use class-balanced weights if requested, else regular class_weights.
+    # If --targeted-cb is set, apply class-balanced weights only to WITHOUT_PAIRS classes
+    weight_for_loss = class_weights
+    if getattr(args, 'class_balanced', False) and cb_weights is not None:
+        if getattr(args, 'targeted_cb', False):
+            # preserve original weight for WITH_PAIRS classes, replace only WITHOUT_PAIRS
+            mask = torch.tensor([0 if cid in paired_cids else 1 for cid in range(num_classes)],
+                                dtype=torch.bool, device=device)
+            weight_for_loss = class_weights.clone()
+            weight_for_loss[mask] = cb_weights[mask]
+        else:
+            weight_for_loss = cb_weights
+
     # Train/val split on photo domain for monitoring
     random.shuffle(photo_samples)
     split = int(0.8 * len(photo_samples))
@@ -373,7 +413,7 @@ def train(args):
     persistent = True if args.num_workers > 0 else False
 
     # improve throughput with prefetch_factor when workers > 0
-    dl_train_kwargs = dict(batch_size=args.batch_size, shuffle=True,
+    dl_train_kwargs = dict(batch_size=args.batch_size,
                            num_workers=args.num_workers, pin_memory=pin_memory,
                            persistent_workers=persistent, collate_fn=collate_fn)
     dl_val_kwargs = dict(batch_size=args.batch_size, shuffle=False,
@@ -393,9 +433,33 @@ def train(args):
     clf = SpeciesClassifier(emb_dim, num_classes).to(device)
     dom = DomainDiscriminator(emb_dim).to(device)
 
-    params = list(proj.parameters()) + list(clf.parameters()) + list(dom.parameters())
-    opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=1e-4)
+    # Handle backbone finetuning: include backbone params with separate LR if requested
+    if args.finetune_backbone:
+        # enable grads on backbone
+        for p in backbone.parameters():
+            p.requires_grad = True
+        params = [
+            {"params": backbone.parameters(), "lr": args.backbone_lr},
+            {"params": list(proj.parameters()) + list(clf.parameters()) + list(dom.parameters()), "lr": args.lr}
+        ]
+        opt = torch.optim.AdamW(params, weight_decay=1e-4)
+    else:
+        # freeze backbone
+        for p in backbone.parameters():
+            p.requires_grad = False
+        params = list(proj.parameters()) + list(clf.parameters()) + list(dom.parameters())
+        opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=1e-4)
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
+
+    # Build a flat parameter list for gradient clipping (opt may have param groups)
+    if isinstance(params, list) and len(params) > 0 and isinstance(params[0], dict):
+        params_to_clip = []
+        for g in params:
+            # g['params'] may be a generator; ensure list
+            params_to_clip.extend(list(g.get("params", [])))
+    else:
+        params_to_clip = list(params)
 
     history = {
         "epoch": [],
@@ -414,6 +478,31 @@ def train(args):
     # mixed precision scaler (if requested and CUDA available)
     use_amp = args.amp and (device.type == "cuda")
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
+
+    # If requested, create a WeightedRandomSampler that can oversample without-pairs classes
+    train_sampler = None
+    if args.use_sampler or args.oversample_without_pairs:
+        # compute per-class counts
+        counts = [0] * num_classes
+        for _, cid, _, _ in train_samples:
+            counts[cid] += 1
+        # base weight per class = 1 / count
+        class_base_weights = [1.0 / max(1, c) for c in counts]
+        sample_weights = []
+        for path, cid, domain_label, paired in train_samples:
+            w = class_base_weights[cid]
+            # if oversampling without-pairs requested and this sample's class is without pairs
+            if args.oversample_without_pairs and paired == 0:
+                w *= float(args.oversample_factor)
+            sample_weights.append(w)
+        train_sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+
+    # rebuild train DataLoader with sampler if present
+    if train_sampler is not None:
+        dl_train = DataLoader(ds_train, sampler=train_sampler, **dl_train_kwargs)
+    else:
+        # fall back to shuffle mode
+        dl_train = DataLoader(ds_train, shuffle=True, **dl_train_kwargs)
 
     for ep in range(1, args.epochs + 1):
         proj.train(); clf.train(); dom.train()
@@ -445,14 +534,22 @@ def train(args):
                 x, y_a, lam, y_b = mixup_data(x, y, alpha=args.mixup_alpha, device=device)
                 mixed = True
 
-            # backbone features (frozen) - compute under no_grad
-            with torch.no_grad():
+            # backbone features
+            if args.finetune_backbone:
+                # finetuning: compute with grads
                 if use_amp:
-                    # autocast okay inside no_grad for faster FP16 ops
-                    with torch.cuda.amp.autocast(enabled=True):
+                    with torch.cuda.amp.autocast(enabled=use_amp):
                         h = backbone(x)
                 else:
                     h = backbone(x)
+            else:
+                # frozen backbone: compute under no_grad for speed
+                with torch.no_grad():
+                    if use_amp:
+                        with torch.cuda.amp.autocast(enabled=use_amp):
+                            h = backbone(x)
+                    else:
+                        h = backbone(x)
                 if h.dim() > 2:
                     h = h.mean(dim=tuple(range(2, h.dim())))
 
@@ -462,12 +559,19 @@ def train(args):
                 logits = clf(z)
                 if mixed:
                     # for mixup/cutmix use blended classification loss and skip triplet/domain losses
-                    loss_cls = lam * F.cross_entropy(logits, y_a, weight=class_weights) + \
-                               (1.0 - lam) * F.cross_entropy(logits, y_b, weight=class_weights)
+                    if getattr(args, 'focal_loss', False):
+                        loss_cls = lam * focal_loss(logits, y_a, gamma=args.focal_gamma, weight=class_weights) + \
+                                   (1.0 - lam) * focal_loss(logits, y_b, gamma=args.focal_gamma, weight=class_weights)
+                    else:
+                        loss_cls = lam * F.cross_entropy(logits, y_a, weight=class_weights) + \
+                                   (1.0 - lam) * F.cross_entropy(logits, y_b, weight=class_weights)
                     loss_trip = torch.tensor(0.0, device=device)
                     loss_da = torch.tensor(0.0, device=device)
                 else:
-                    loss_cls = F.cross_entropy(logits, y, weight=class_weights)
+                    if getattr(args, 'focal_loss', False):
+                        loss_cls = focal_loss(logits, y, gamma=args.focal_gamma, weight=class_weights)
+                    else:
+                        loss_cls = F.cross_entropy(logits, y, weight=class_weights)
                     loss_trip = make_triplets(z, y, margin=args.margin)
 
                     # domain loss: only for classes that are in paired set (paired==1)
@@ -485,12 +589,12 @@ def train(args):
             opt.zero_grad(set_to_none=True)
             if scaler is not None:
                 scaler.scale(loss).backward()
-                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                torch.nn.utils.clip_grad_norm_(params_to_clip, 5.0)
                 scaler.step(opt)
                 scaler.update()
             else:
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(params, 5.0)
+                torch.nn.utils.clip_grad_norm_(params_to_clip, 5.0)
                 opt.step()
 
             total_loss += float(loss.detach().cpu().item())
@@ -606,6 +710,20 @@ def parse_args():
                    help="Unfreeze entire backbone and fine-tune with smaller LR")
     p.add_argument("--backbone-lr", type=float, default=1e-4,
                    help="Learning rate for backbone when finetuning")
+    p.add_argument("--oversample-without-pairs", action="store_true",
+                   help="Oversample classes that are WITHOUT pairs to balance training")
+    p.add_argument("--oversample-factor", type=float, default=2.0,
+                   help="Multiplier on sample weights for without-pairs when oversampling")
+    p.add_argument("--focal-loss", action="store_true", dest="focal_loss",
+                   help="Use focal loss for classification instead of plain cross-entropy")
+    p.add_argument("--focal-gamma", type=float, default=2.0,
+                   help="Gamma parameter for focal loss")
+    p.add_argument("--class-balanced", action="store_true", dest="class_balanced",
+                   help="Use class-balanced loss weighting (Cui et al.)")
+    p.add_argument("--cbeta", type=float, default=0.9999,
+                   help="Beta value for class-balanced loss (near 1.0)")
+    p.add_argument("--targeted-cb", action="store_true", dest="targeted_cb",
+                   help="Apply class-balanced weights only to WITHOUT_PAIRS classes (keep WITH_PAIRS weights unchanged)")
     p.add_argument("--augment", action="store_true", help="Enable train-time data augmentation")
     p.add_argument("--aug-strength", choices=["light","strong"], default="strong",
                    help="Augmentation strength when --augment is set")
