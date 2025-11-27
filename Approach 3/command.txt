@@ -1,0 +1,18 @@
+$ROOT = "C:\Users\User\Documents\GitHub\COS30082_ML_project\AML_project_herbarium_dataset"
+
+# Train
+python -m approach3_train `
+  --data-root "$ROOT" `
+  --model vit_base_patch14_reg4_dinov2.lvd142m `
+  --device cuda `
+  --epochs 20 `
+  --batch-size 32 `
+  --lr 1e-3 `
+  --margin 0.3 `
+  --outdir "runs_approach3"
+
+# Eval
+python -m approach3.approach3_eval `
+  --data-root "$ROOT" `
+  --ckpt "runs_approach3\best_model.pt" `
+  --outdir "runs_approach3\report"
