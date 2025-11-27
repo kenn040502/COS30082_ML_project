@@ -1,0 +1,20 @@
+# Core deep learning
+torch>=2.2
+torchvision>=0.17
+timm>=1.0.3
+
+# Training utilities
+tqdm>=4.66
+numpy>=1.26
+Pillow>=10.3
+matplotlib>=3.8
+scipy>=1.11
+
+# Augmentations
+albumentations>=1.4
+opencv-python-headless>=4.8
+
+# Classical ML / feature pipeline
+scikit-learn>=1.4
+joblib>=1.4
+pandas>=2.2

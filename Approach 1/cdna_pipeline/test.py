@@ -1,19 +1,33 @@
+import os
 import torch
 from torch.utils.data import DataLoader
 from models.feature_extractor import get_backbone
 from models.classifier import ClassifierHead
 from utils.transforms import get_transforms
 from utils.metrics import evaluate_model
-from datasets import PlantDomainDataset
+from datasets import PlantFolderDataset, PlantTestDataset
+
+
+def get_data_root():
+    """Resolve dataset root from env or default to repo-local AML_project_herbarium_dataset."""
+    env_root = os.environ.get("AML_DATA_ROOT")
+    if env_root:
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "AML_project_herbarium_dataset"))
 
 def simple_model_test():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Testing on device: {device}")
     
     # Load test data
-    data_root = "./AML_project_herbarium_dataset"
+    data_root = get_data_root()
+    print(f"Dataset root: {data_root}")
     test_tf = get_transforms(train=False)
-    test_dataset = PlantDomainDataset(data_root, split='test', transform=test_tf)
+
+    # Build shared class mapping before loading test set
+    _ = PlantFolderDataset(data_root, domain='herbarium', split='train', transform=test_tf)
+
+    test_dataset = PlantTestDataset(data_root, transform=test_tf)
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=0)
     
     # Recreate model architecture

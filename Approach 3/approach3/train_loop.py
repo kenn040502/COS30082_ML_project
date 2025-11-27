@@ -21,7 +21,7 @@ from .datasets import (
     build_paired_set,
     make_train_val_samples,
 )
-from .losses import compute_class_weights, triplet_loss_random, batch_hard_triplet_loss
+from .losses import compute_class_weights, triplet_loss_random
 
 def set_seed(seed: int):
     random.seed(seed)
@@ -183,7 +183,8 @@ def train_main(args):
                     # classification
                     loss_cls = F.cross_entropy(logits, y, weight=class_weights)
                     # batch-hard triplet
-                    loss_trip = batch_hard_triplet_loss(z, y, margin=args.margin)
+                    # use simple random triplet mining
+                    loss_trip = triplet_loss_random(z, y, margin=args.margin)
                     # domain adversarial (only on paired classes)
                     mask = (paired_flag > 0.5)
                     if mask.any():
@@ -208,7 +209,7 @@ def train_main(args):
                 # classification
                 loss_cls = F.cross_entropy(logits, y, weight=class_weights)
                 # batch-hard triplet
-                loss_trip = batch_hard_triplet_loss(z, y, margin=args.margin)
+                loss_trip = triplet_loss_random(z, y, margin=args.margin)
 
                 # domain adversarial (only on paired classes)
                 mask = (paired_flag > 0.5)

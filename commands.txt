@@ -1,0 +1,33 @@
+# Run commands from the repo root. All scripts auto-detect the dataset via
+# AML_DATA_ROOT or default to ./AML_project_herbarium_dataset.
+#
+# Set the dataset path once (optional):
+#   Bash:       export AML_DATA_ROOT="$PWD/AML_project_herbarium_dataset"
+#   PowerShell: $env:AML_DATA_ROOT = (Resolve-Path "AML_project_herbarium_dataset")
+
+## Approach 1 - CDAN domain adaptation
+cd "Approach 1/cdna_pipeline"
+python main.py    # train; checkpoints/ saved here
+python test.py    # eval using checkpoints/final_model.pth
+cd ../..          # back to repo root
+
+## Approach 2 - Improved deep baseline (advanced aug + class-balanced/focal)
+cd "Approach 2/src"
+python improved_baseline1_train.py
+cd ../..          # back to repo root
+
+## Approach 2 - Feature pipeline + sklearn head
+cd "Approach 2/Approach2_v1/src"
+python build_features.py --data-list ../../AML_project_herbarium_dataset/list/train.txt --weights ../weights/model_best.pth.tar --out ../features/train.npz --batch 16 --device cuda
+python build_features.py --data-list ../../AML_project_herbarium_dataset/list/test.txt  --weights ../weights/model_best.pth.tar --out ../features/test.npz  --batch 16 --device cuda
+# (optional) add ground truth for test labels:
+#   --groundtruth ../../AML_project_herbarium_dataset/list/groundtruth.txt
+python train_sklearn.py  --train ../features/train.npz --out ../weights/sklearn_model.pkl
+python eval_topk.py      --train ../features/train.npz --test ../features/test.npz --model ../weights/sklearn_model.pkl --out ../results/baseline2/baseline2_result.txt
+cd ../../..       # back to repo root
+
+## Approach 3 - DINOv2 + metric/triplet learning
+cd "Approach 3"
+python -m approach3.approach3_train --model vit_base_patch14_reg4_dinov2.lvd142m --epochs 20 --batch-size 32 --lr 1e-3 --margin 0.3 --outdir runs_approach3
+python -m approach3.approach3_eval  --ckpt "runs_approach3/best_model.pt" --outdir "runs_approach3/report"
+cd ..              # back to repo root

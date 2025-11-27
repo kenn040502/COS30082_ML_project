@@ -1,10 +1,18 @@
 from __future__ import annotations
 import argparse
+import os
 from .train_loop import train_main, set_seed
+
+
+def default_data_root():
+    env_root = os.environ.get("AML_DATA_ROOT")
+    if env_root:
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "AML_project_herbarium_dataset"))
 
 def parse_args():
     p = argparse.ArgumentParser("Approach 3 - Domain-adaptive metric learning with DINOv2")
-    p.add_argument("--data-root", required=True, help="Root of AML herbarium dataset")
+    p.add_argument("--data-root", default=default_data_root(), help="Root of AML herbarium dataset")
     p.add_argument("--model", default="vit_base_patch14_reg4_dinov2.lvd142m")
     p.add_argument("--epochs", type=int, default=20)
     p.add_argument("--batch-size", type=int, default=32)

@@ -13,6 +13,14 @@ from improved_baseline1_model import create_improved_model
 from improved_baseline1_dataloader import create_improved_dataloaders
 
 
+def get_default_data_root():
+    """Return dataset root from AML_DATA_ROOT or fall back to repo-local AML_project_herbarium_dataset."""
+    env_root = os.environ.get("AML_DATA_ROOT")
+    if env_root:
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "AML_project_herbarium_dataset"))
+
+
 class ClassBalancedLoss(nn.Module):
     """
     Weight loss by inverse class frequency.
@@ -547,7 +555,7 @@ def main():
     
     # OPTIMIZED Configuration
     CONFIG = {
-        'data_dir': '.',
+        'data_dir': get_default_data_root(),
         
         # Model - Balanced for speed vs accuracy
         'model_name': 'convnext_small',    

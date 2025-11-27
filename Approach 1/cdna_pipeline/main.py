@@ -17,6 +17,14 @@ from utils.metrics import evaluate_model
 from datasets import PlantFolderDataset, PlantTestDataset
 
 
+def get_data_root():
+    """Resolve dataset root from env or default to repo-local AML_project_herbarium_dataset."""
+    env_root = os.environ.get("AML_DATA_ROOT")
+    if env_root:
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "AML_project_herbarium_dataset"))
+
+
 @torch.no_grad()
 def evaluate_per_class(F, C, loader, device, class_names=None):
     F.eval()
@@ -53,13 +61,14 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     os.makedirs("checkpoints", exist_ok=True)
+    data_root = get_data_root()
+    print(f"Dataset root: {data_root}")
 
     # ===== Choose backbone =====
     # Options: "resnet50", "dinov2"
     backbone = "dinov2"  # change back to "resnet50" if you want baseline
 
     # ===== Dataset and transforms =====
-    data_root = "./AML_project_herbarium_dataset"
     train_tf = get_transforms(train=True, backbone=backbone)
     test_tf = get_transforms(train=False, backbone=backbone)
 
