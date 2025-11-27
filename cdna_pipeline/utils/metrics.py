@@ -26,7 +26,6 @@ def evaluate_model(feature_extractor, classifier, dataloader, device, topk=(1, 5
     """
     Evaluate model on a dataloader and return top-k accuracies
     """
-    
     feature_extractor.eval()
     classifier.eval()
     
