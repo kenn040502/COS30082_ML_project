@@ -18,3 +18,4 @@ opencv-python-headless>=4.8
 scikit-learn>=1.4
 joblib>=1.4
 pandas>=2.2
+streamlit>=1.30
