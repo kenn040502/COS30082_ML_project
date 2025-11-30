@@ -1,33 +1,29 @@
-# Run commands from the repo root. All scripts auto-detect the dataset via
-# AML_DATA_ROOT or default to ./AML_project_herbarium_dataset.
-#
-# Set the dataset path once (optional):
-#   Bash:       export AML_DATA_ROOT="$PWD/AML_project_herbarium_dataset"
+# Run from the repo root. All approaches look for AML_DATA_ROOT first and fall back to ./AML_project_herbarium_dataset.
 #   PowerShell: $env:AML_DATA_ROOT = (Resolve-Path "AML_project_herbarium_dataset")
+#   Bash:       export AML_DATA_ROOT="$PWD/AML_project_herbarium_dataset"
 
-## Approach 1 - CDAN domain adaptation
-cd "Approach 1/cdna_pipeline"
-python main.py    # train; checkpoints/ saved here
-python test.py    # eval using checkpoints/final_model.pth
-cd ../..          # back to repo root
+$env:AML_DATA_ROOT 
 
-## Approach 2 - Improved deep baseline (advanced aug + class-balanced/focal)
-cd "Approach 2/src"
-python improved_baseline1_train.py
-cd ../..          # back to repo root
+## Approach 1 - ConvNeXt baseline
+python "Approach 1/src/improved_baseline1_train.py"   # trains + final eval; saves improved_baseline1_best.pth/.json
+# Re-evaluate a checkpoint:
+# python "Approach 1/test_model.py" --checkpoint "Approach 1/baseline1_optimized_best.pth" --data_dir "AML_project_herbarium_dataset"
 
-## Approach 2 - Feature pipeline + sklearn head
-cd "Approach 2/Approach2_v1/src"
-python build_features.py --data-list ../../AML_project_herbarium_dataset/list/train.txt --weights ../weights/model_best.pth.tar --out ../features/train.npz --batch 16 --device cuda
-python build_features.py --data-list ../../AML_project_herbarium_dataset/list/test.txt  --weights ../weights/model_best.pth.tar --out ../features/test.npz  --batch 16 --device cuda
-# (optional) add ground truth for test labels:
-#   --groundtruth ../../AML_project_herbarium_dataset/list/groundtruth.txt
-python train_sklearn.py  --train ../features/train.npz --out ../weights/sklearn_model.pkl
-python eval_topk.py      --train ../features/train.npz --test ../features/test.npz --model ../weights/sklearn_model.pkl --out ../results/baseline2/baseline2_result.txt
-cd ../../..       # back to repo root
+## Approach 2 - DINOv2 features + sklearn head
+# Fast path (use precomputed features):
+python "Approach 2/src/train_sklearn.py"  --train "Approach 2/features/train.npz" --out_dir "Approach 2/weights"
+python "Approach 2/src/eval_topk.py"      --clf "Approach 2/weights/sklearn_model.pkl" --train "Approach 2/features/train.npz" --test "Approach 2/features/test.npz" --species-list "AML_project_herbarium_dataset/list/species_list.txt" --topk 1 5
+# Rebuild features if you have a DINOv2 reg4 checkpoint (not included):
+#   PowerShell: $CKPT = "C:/path/to/model_best.pth.tar"
+#   Bash:       export CKPT=/path/to/model_best.pth.tar
+#   python "Approach 2/src/build_features.py" --data-list "AML_project_herbarium_dataset/list/train.txt" --weights "$CKPT" --out "Approach 2/features/train.npz" --batch 16 --device cuda
+#   python "Approach 2/src/build_features.py" --data-list "AML_project_herbarium_dataset/list/test.txt"  --weights "$CKPT" --out "Approach 2/features/test.npz"  --batch 16 --device cuda --groundtruth "AML_project_herbarium_dataset/list/groundtruth.txt"
+#   python "Approach 2/src/train_sklearn.py"  --train "Approach 2/features/train.npz" --out_dir "Approach 2/weights"
+#   python "Approach 2/src/eval_topk.py"      --clf "Approach 2/weights/sklearn_model.pkl" --train "Approach 2/features/train.npz" --test "Approach 2/features/test.npz" --species-list "AML_project_herbarium_dataset/list/species_list.txt" --topk 1 5
 
-## Approach 3 - DINOv2 + metric/triplet learning
-cd "Approach 3"
-python -m approach3.approach3_train --model vit_base_patch14_reg4_dinov2.lvd142m --epochs 20 --batch-size 32 --lr 1e-3 --margin 0.3 --outdir runs_approach3
-python -m approach3.approach3_eval  --ckpt "runs_approach3/best_model.pt" --outdir "runs_approach3/report"
-cd ..              # back to repo root
+## Approach 3 - DINOv2 metric/triplet learning
+# The package lives in "Approach 3/approach3"—expose it via PYTHONPATH before running.
+#   PowerShell: $env:PYTHONPATH = "$PWD\\Approach 3"
+#   Bash:       export PYTHONPATH="$PWD/Approach 3"
+python -m approach3.approach3_train --model vit_base_patch14_reg4_dinov2.lvd142m --epochs 20 --batch-size 32 --lr 1e-3 --margin 0.3 --outdir "Approach 3/runs_approach3"
+python -m approach3.approach3_eval  --ckpt "Approach 3/runs_approach3/best_model.pt" --outdir "Approach 3/runs_approach3/report"

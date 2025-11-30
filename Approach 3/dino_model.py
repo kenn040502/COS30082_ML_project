@@ -8,7 +8,7 @@ def load_dino(model_name: str, device: torch.device):
       - model: feature extractor (no classifier head)
       - preprocess: torchvision-style transform
     """
-    print(f"Loading backbone via timm: {model_name}")
+    print(f"🌿 Loading backbone via timm: {model_name}")
     model = timm.create_model(model_name, pretrained=True, num_classes=0)
     model.eval().to(device)
 
@@ -18,10 +18,5 @@ def load_dino(model_name: str, device: torch.device):
 
     cfg = resolve_data_config({}, model=model)
     preprocess = create_transform(**cfg)
-    inp = cfg.get('input_size', ('?', '?'))
-    try:
-      size_str = f"{inp[1]}x{inp[2]}"
-    except Exception:
-      size_str = str(inp)
-    print(f"Preprocess input size set to: {size_str}")
+    print(f"🖼️  Preprocess input size set to: {cfg.get('input_size', ('?', '?'))[1]}×{cfg.get('input_size', ('?', '?'))[2]}")
     return model, preprocess
