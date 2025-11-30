@@ -2,7 +2,6 @@ from __future__ import annotations
 import os, json
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -12,68 +11,6 @@ from dino_model import load_dino
 
 from .models import ProjectionHead, SpeciesClassifier
 from .datasets import TestDataset, build_paired_set, make_test_samples
-
-
-def load_model_for_eval(ckpt_path: str, data_root: str, device: str | None = None):
-    """Helper for interactive GUIs: load checkpoint and return (model, preprocess, meta).
-
-    model: callable nn.Module that accepts a preprocessed batch tensor and returns logits.
-    preprocess: a PIL->tensor callable (same as load_dino returns)
-    meta: dict with keys 'classes' (list[str]) and optional 'class_to_example' mapping
-    """
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    ckpt = torch.load(ckpt_path, map_location="cpu")
-    backbone_name = ckpt.get("backbone_name", ckpt.get("model", "vit_base_patch14_reg4_dinov2.lvd142m"))
-    class_ids = ckpt["class_ids"]
-    cls2idx = ckpt.get("cls2idx", None)
-    emb_dim = ckpt.get("emb_dim", 512)
-    num_classes = len(class_ids)
-
-    backbone, preprocess = load_dino(backbone_name, device)
-    in_dim = getattr(backbone, "num_features", 768)
-
-    proj = ProjectionHead(in_dim, emb_dim).to(device)
-    clf = SpeciesClassifier(emb_dim, num_classes).to(device)
-    proj.load_state_dict(ckpt["proj_state"])
-    clf.load_state_dict(ckpt["clf_state"])
-    proj.eval(); clf.eval()
-
-    class_to_example = {}
-    try:
-        for cid in class_ids:
-            exs = []
-            for sub in ("train/herbarium", "train/photo"):
-                d = os.path.join(data_root, sub, str(cid))
-                if os.path.isdir(d):
-                    for fn in os.listdir(d)[:4]:
-                        exs.append(os.path.join(d, fn))
-            if exs:
-                class_to_example[cid] = exs
-    except Exception:
-        # ignore filesystem errors for this helper
-        class_to_example = {}
-
-    # small wrapper model
-    class WrappedModel(nn.Module):
-        def __init__(self, backbone, proj, clf):
-            super().__init__()
-            self.backbone = backbone
-            self.proj = proj
-            self.clf = clf
-
-        def forward(self, x):
-            h = self.backbone(x)
-            if h.dim() > 2:
-                h = h.mean(dim=tuple(range(2, h.dim())))
-            z = self.proj(h)
-            logits = self.clf(z)
-            return logits
-
-    model = WrappedModel(backbone, proj, clf).to(device)
-    meta = {"classes": class_ids, "class_to_example": class_to_example}
-    return model, preprocess, meta
 
 def eval_main(args):
     device = torch.device(args.device)
