@@ -8,10 +8,17 @@ from tqdm import tqdm
 import time
 import json
 import os
-from pathlib import Path
 
 from improved_baseline1_model import create_improved_model
 from improved_baseline1_dataloader import create_improved_dataloaders
+
+
+def get_default_data_root():
+    """Return dataset root from AML_DATA_ROOT or fall back to repo-local AML_project_herbarium_dataset."""
+    env_root = os.environ.get("AML_DATA_ROOT")
+    if env_root:
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "AML_project_herbarium_dataset"))
 
 
 class ClassBalancedLoss(nn.Module):
@@ -84,33 +91,6 @@ class MixupAugmentation:
         y_a, y_b = y, y[index]
         
         return mixed_x, y_a, y_b, lam
-
-
-def resolve_data_dir(preferred_dir: str = '.') -> Path:
-    """
-    Pick a data directory that works across OSes:
-    - Respect an explicit path in the config (absolute or relative to CWD)
-    - Fall back to AML_DATA_ROOT if set
-    - Otherwise try the repo-local AML_project_herbarium_dataset next to this repo
-    """
-    if preferred_dir and preferred_dir != '.':
-        candidate = Path(preferred_dir).expanduser()
-        return candidate if candidate.is_absolute() else (Path.cwd() / candidate).resolve()
-
-    env_root = os.environ.get('AML_DATA_ROOT')
-    if env_root:
-        env_path = Path(env_root).expanduser()
-        if env_path.exists():
-            return env_path.resolve()
-        print(f"WARNING: AML_DATA_ROOT is set but not found: {env_root}")
-
-    repo_root = Path(__file__).resolve().parents[2]
-    default_root = repo_root / 'AML_project_herbarium_dataset'
-    if default_root.exists():
-        return default_root.resolve()
-
-    # Last resort: use the working directory
-    return Path(preferred_dir or '.').resolve()
 
 
 class ImprovedBaseline1Trainer:
@@ -575,7 +555,7 @@ def main():
     
     # OPTIMIZED Configuration
     CONFIG = {
-        'data_dir': '.',
+        'data_dir': get_default_data_root(),
         
         # Model - Balanced for speed vs accuracy
         'model_name': 'convnext_small',    
@@ -612,16 +592,12 @@ def main():
         'phase2_backbone_lr': 5e-6,         
         'phase2_head_lr': 1e-4,            
     }
-
-    resolved_data_dir = resolve_data_dir(CONFIG.get('data_dir', '.'))
-    CONFIG['data_dir'] = str(resolved_data_dir)
     
     print("\nConfiguration:")
     print("="*60)
     for key, value in CONFIG.items():
         print(f"   {key}: {value}")
     print("="*60)
-    print(f"Data directory resolved to: {resolved_data_dir}")
     
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

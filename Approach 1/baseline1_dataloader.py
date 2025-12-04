@@ -1,119 +1,51 @@
 import os
-from collections import Counter
-from typing import Dict, List, Optional
-
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+from PIL import Image
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import cv2
 import numpy as np
-import torch
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
-
-
-def _load_labels(annotation_file: str) -> List[int]:
-    """Load labels from an annotation file."""
-    labels: List[int] = []
-    if not os.path.exists(annotation_file):
-        return labels
-    with open(annotation_file, "r") as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) == 2:
-                try:
-                    labels.append(int(parts[1]))
-                except ValueError:
-                    continue
-    return labels
+from collections import Counter, defaultdict
 
 
 class ImprovedPlantDataset(Dataset):
-    def __init__(
-        self,
-        root_dir,
-        annotation_file,
-        transform=None,
-        use_albumentations=False,
-        class_with_pairs_file=None,
-        class_without_pairs_file=None,
-        label_map: Optional[Dict[int, int]] = None,
-    ):
+    def __init__(self, root_dir, annotation_file, transform=None, use_albumentations=False,
+                 class_with_pairs_file=None, class_without_pairs_file=None):
         """
         Args:
             root_dir: Root directory containing images
             annotation_file: Path to train.txt or test.txt
             transform: Torchvision transforms (if use_albumentations=False)
             use_albumentations: Whether to use Albumentations (more powerful)
-            class_with_pairs_file: Path to class_with_pairs.txt (species ids or indices)
-            class_without_pairs_file: Path to class_without_pairs.txt (species ids or indices)
-            label_map: Optional mapping from original class ids to 0..N-1
+            class_with_pairs_file: Path to class_with_pairs.txt
+            class_without_pairs_file: Path to class_without_pairs.txt
         """
         self.root_dir = root_dir
         self.transform = transform
         self.use_albumentations = use_albumentations
-        self.label_map = label_map or {}
         
         # Load annotations
         self.data = []
-        with open(annotation_file, "r") as f:
+        with open(annotation_file, 'r') as f:
             for line in f:
                 parts = line.strip().split()
-                if len(parts) != 2:
-                    continue
-                img_path, class_id = parts
-                class_id = int(class_id)
-                if self.label_map:
-                    if class_id in self.label_map:
-                        mapped = self.label_map[class_id]
-                    elif class_id in self.label_map.values():
-                        # Already mapped value in file
-                        mapped = class_id
-                    else:
-                        raise ValueError(f"Found label {class_id} not present in label_map")
-                else:
-                    mapped = class_id
-                self.data.append((img_path, mapped))
+                if len(parts) == 2:
+                    img_path, class_id = parts
+                    self.data.append((img_path, int(class_id)))
         
         # Load species pair information
         self.classes_with_pairs = set()
         self.classes_without_pairs = set()
         
         if class_with_pairs_file and os.path.exists(class_with_pairs_file):
-            with open(class_with_pairs_file, "r") as f:
-                raw_ids = [int(line.strip()) for line in f if line.strip()]
-            mapped_ids = []
-            skipped = 0
-            for cid in raw_ids:
-                if self.label_map and cid in self.label_map:
-                    mapped_ids.append(self.label_map[cid])
-                elif self.label_map and cid in self.label_map.values():
-                    mapped_ids.append(cid)
-                elif not self.label_map:
-                    mapped_ids.append(cid)
-                else:
-                    skipped += 1
-            self.classes_with_pairs = set(mapped_ids)
-            if skipped:
-                print(f"   Warning: skipped {skipped} ids from {class_with_pairs_file} (not in label_map)")
+            with open(class_with_pairs_file, 'r') as f:
+                self.classes_with_pairs = set([int(line.strip()) for line in f if line.strip()])
         
         if class_without_pairs_file and os.path.exists(class_without_pairs_file):
-            with open(class_without_pairs_file, "r") as f:
-                raw_ids = [int(line.strip()) for line in f if line.strip()]
-            mapped_ids = []
-            skipped = 0
-            for cid in raw_ids:
-                if self.label_map and cid in self.label_map:
-                    mapped_ids.append(self.label_map[cid])
-                elif self.label_map and cid in self.label_map.values():
-                    mapped_ids.append(cid)
-                elif not self.label_map:
-                    mapped_ids.append(cid)
-                else:
-                    skipped += 1
-            self.classes_without_pairs = set(mapped_ids)
-            if skipped:
-                print(f"   Warning: skipped {skipped} ids from {class_without_pairs_file} (not in label_map)")
+            with open(class_without_pairs_file, 'r') as f:
+                self.classes_without_pairs = set([int(line.strip()) for line in f if line.strip()])
         
         print(f"Loaded {len(self.data)} images")
         self._print_statistics()
@@ -283,10 +215,6 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
     test_annotation = os.path.join(data_dir, 'list', 'test.txt')
     class_with_pairs = os.path.join(data_dir, 'list', 'class_with_pairs_indices.txt')
     class_without_pairs = os.path.join(data_dir, 'list', 'class_without_pairs_indices.txt')
-    if not os.path.exists(class_with_pairs):
-        class_with_pairs = os.path.join(data_dir, 'list', 'class_with_pairs.txt')
-    if not os.path.exists(class_without_pairs):
-        class_without_pairs = os.path.join(data_dir, 'list', 'class_without_pairs.txt')
     
     # Validate files exist
     print(f"\nValidating data files...")
@@ -295,21 +223,6 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
     if not os.path.exists(test_annotation):
         print(f"Test annotation file not found: {test_annotation}")
         print(f"   Creating empty test dataset...")
-    
-    # Build label map so labels are contiguous 0..N-1 (required by CrossEntropyLoss)
-    train_labels = _load_labels(train_annotation)
-    test_labels = _load_labels(test_annotation)
-    all_labels = sorted(set(train_labels + test_labels))
-    if len(all_labels) == 0:
-        raise ValueError("No labels found in train/test annotation files.")
-    is_contiguous_zero_based = all_labels == list(range(len(all_labels))) and all_labels[0] == 0
-    label_map = {lbl: lbl for lbl in all_labels} if is_contiguous_zero_based else {label: idx for idx, label in enumerate(all_labels)}
-    if is_contiguous_zero_based:
-        print("\nLabel mapping: labels already 0..N-1; using identity map.")
-    else:
-        print("\nLabel mapping created (labels were non-contiguous or not zero-based):")
-        print(f"   Original id range: {min(all_labels)} - {max(all_labels)} ({len(all_labels)} unique)")
-        print(f"   Remapped to range: 0 - {len(all_labels) - 1}")
     
     # Get transforms
     train_transform = get_improved_transforms(img_size, is_training=True, use_albumentations=use_albumentations)
@@ -324,45 +237,42 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
     # Create datasets
     print("\nCreating Training Dataset...")
     train_dataset = ImprovedPlantDataset(
-        root_dir=data_dir,
+        root_dir=os.path.join(data_dir, 'train'),
         annotation_file=train_annotation,
         transform=train_transform,
         use_albumentations=use_albumentations,
         class_with_pairs_file=class_with_pairs,
-        class_without_pairs_file=class_without_pairs,
-        label_map=label_map
+        class_without_pairs_file=class_without_pairs
     )
     
     if len(train_dataset) == 0:
-        raise ValueError("Training dataset is empty! Cannot proceed.")
+        raise ValueError("❌ Training dataset is empty! Cannot proceed.")
     
     print("\nCreating Test Dataset...")
     if os.path.exists(test_annotation):
         test_dataset = ImprovedPlantDataset(
-            root_dir=data_dir,
+            root_dir=os.path.join(data_dir, 'test'),
             annotation_file=test_annotation,
             transform=test_transform,
             use_albumentations=use_albumentations,
             class_with_pairs_file=class_with_pairs,
-            class_without_pairs_file=class_without_pairs,
-            label_map=label_map
+            class_without_pairs_file=class_without_pairs
         )
     else:
         print("Test dataset file not found. Creating empty placeholder...")
         # Create an empty test dataset using a copy of train with no samples
         test_dataset = ImprovedPlantDataset(
-            root_dir=data_dir,
+            root_dir=os.path.join(data_dir, 'train'),
             annotation_file=train_annotation,
             transform=test_transform,
             use_albumentations=use_albumentations,
             class_with_pairs_file=class_with_pairs,
-            class_without_pairs_file=class_without_pairs,
-            label_map=label_map
+            class_without_pairs_file=class_without_pairs
         )
         test_dataset.data = []  # Empty it
     
     # Get number of classes
-    num_classes = len(label_map)
+    num_classes = len(set([class_id for _, class_id in train_dataset.data]))
     print(f"\nTotal classes: {num_classes}")
     
     # Create dataloaders
@@ -398,8 +308,7 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
         'classes_with_pairs': train_dataset.classes_with_pairs,
         'classes_without_pairs': train_dataset.classes_without_pairs,
         'train_size': len(train_dataset),
-        'test_size': len(test_dataset) if test_dataset else 0,
-        'label_map': label_map
+        'test_size': len(test_dataset) if test_dataset else 0
     }
     
     print(f"Train batches: {len(train_loader)}")

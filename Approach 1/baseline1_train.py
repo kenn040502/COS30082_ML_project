@@ -8,8 +8,6 @@ from tqdm import tqdm
 import time
 import json
 import matplotlib.pyplot as plt
-import os
-from pathlib import Path
 
 from baseline1_model import create_improved_model
 from baseline1_dataloader import create_improved_dataloaders
@@ -33,32 +31,6 @@ class MixupAugmentation:
         y_a, y_b = y, y[index]
         
         return mixed_x, y_a, y_b, lam
-
-
-def resolve_data_dir(preferred_dir: str = '.') -> Path:
-    """
-    Choose a dataset root that works on any OS:
-    - Use an explicit path if provided (relative to CWD if not absolute)
-    - Otherwise prefer AML_DATA_ROOT
-    - Fall back to the repo-local AML_project_herbarium_dataset
-    """
-    if preferred_dir and preferred_dir != '.':
-        candidate = Path(preferred_dir).expanduser()
-        return candidate if candidate.is_absolute() else (Path.cwd() / candidate).resolve()
-
-    env_root = os.environ.get('AML_DATA_ROOT')
-    if env_root:
-        env_path = Path(env_root).expanduser()
-        if env_path.exists():
-            return env_path.resolve()
-        print(f"WARNING: AML_DATA_ROOT is set but not found: {env_root}")
-
-    repo_root = Path(__file__).resolve().parents[2]
-    default_root = repo_root / 'AML_project_herbarium_dataset'
-    if default_root.exists():
-        return default_root.resolve()
-
-    return Path(preferred_dir or '.').resolve()
 
 
 class OptimizedTrainer:
@@ -543,10 +515,6 @@ def main():
         'phase2_head_lr': 1e-4,     
         'max_gap': 16,              
     }
-
-    data_dir = resolve_data_dir(CONFIG.get('data_dir', '.'))
-    CONFIG['data_dir'] = str(data_dir)
-    print(f"\nData directory resolved to: {data_dir}")
     
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

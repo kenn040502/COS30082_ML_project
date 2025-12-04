@@ -1,17 +1,14 @@
 COS30082_ML_project/
-├─ AML_project_herbarium_dataset/   # dataset with train/, test/, list/ (train.txt, test.txt, groundtruth.txt, species lists)
-├─ Approach 1/                      # ConvNeXt baseline training/eval helpers
-│  ├─ src/                          # improved_baseline1_* training code
-│  └─ *.py                          # baseline scripts, diagnostics, plots
-├─ Approach 2/                      # DINOv2 feature pipeline + sklearn head
-│  ├─ src/                          # build_features.py, train_sklearn.py, eval_topk.py
-│  ├─ features/                     # precomputed embeddings (train.npz, test.npz)
-│  ├─ weights/                      # pretrained sklearn heads
-│  ├─ process/, results/            # experiment logs and outputs
-│  └─ tools/                        # dataset list rebuild helper
-├─ Approach 3/                      # DINOv2 + metric/triplet learning
-│  ├─ approach3/                    # train/eval package
-│  └─ runs_approach3*/              # training outputs/checkpoints
-├─ README.md                        # project overview and usage
-├─ commands.txt                     # quick-start commands for each approach
-└─ requirements.txt                 # top-level Python dependencies
+├─ AML_project_herbarium_dataset/    (dataset: images + list/train.txt, test.txt, groundtruth.txt, class lists)
+├─ Approach 1/                      (CDAN domain adaptation)
+│  └─ cdna_pipeline/                (main.py, datasets.py, models/, utils/, test.py, checkpoints/)
+├─ Approach 2/                      (baselines + feature pipeline + CDAN copy)
+│  ├─ src/                          (improved_baseline1_* training code)
+│  ├─ Approach2_v1/                 (feature extraction + sklearn head; features/, weights/, process/, results/)
+│  └─ cdna_pipeline/                (CDAN copy for comparison)
+├─ Approach 3/                      (DINOv2 + metric learning)
+│  ├─ approach3/                    (train/eval code)
+│  └─ runs_approach3*/              (training outputs/checkpoints)
+├─ README.md                        (project overview and usage)
+├─ commands.txt                     (how to run each approach)
+└─ requirements.txt                 (Python dependencies)

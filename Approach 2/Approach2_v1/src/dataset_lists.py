@@ -4,14 +4,15 @@
 #
 # Typical layout:
 #   <dataset_root>/
-#     - train/
-#       - herbarium/...
-#       - field/...
-#     - test/...
-#     - list/
-#         - train.txt
-#         - test.txt
-#         - species_list.txt
+#     ├─ train/
+#     │   ├─ herbarium/...
+#     │   └─ field/...
+#     ├─ test/...
+#     └─ list/
+#         ├─ train.txt
+#         ├─ test.txt
+#         └─ species_list.txt
+#
 # Usage:
 #   # Quick check (warn about missing files, show stats)
 #   python src/dataset_lists.py --root "Herbarium_Field dataset" --list "list/train.txt"

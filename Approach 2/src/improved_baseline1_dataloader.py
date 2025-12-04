@@ -8,14 +8,11 @@ from albumentations.pytorch import ToTensorV2
 import cv2
 import numpy as np
 from collections import Counter, defaultdict
-from typing import Dict, Optional
-from pathlib import Path
 
 
 class ImprovedPlantDataset(Dataset):
     def __init__(self, root_dir, annotation_file, transform=None, use_albumentations=False,
-                 class_with_pairs_file=None, class_without_pairs_file=None,
-                 label_map: Optional[Dict[int, int]] = None):
+                 class_with_pairs_file=None, class_without_pairs_file=None):
         """
         Args:
             root_dir: Root directory containing images
@@ -24,12 +21,10 @@ class ImprovedPlantDataset(Dataset):
             use_albumentations: Whether to use Albumentations (more powerful)
             class_with_pairs_file: Path to class_with_pairs.txt
             class_without_pairs_file: Path to class_without_pairs.txt
-            label_map: Optional mapping from original class ids to 0..N-1
         """
-        self.root_dir = Path(root_dir).expanduser()
+        self.root_dir = root_dir
         self.transform = transform
         self.use_albumentations = use_albumentations
-        self.label_map = label_map or {}
         
         # Load annotations
         self.data = []
@@ -38,16 +33,7 @@ class ImprovedPlantDataset(Dataset):
                 parts = line.strip().split()
                 if len(parts) == 2:
                     img_path, class_id = parts
-                    class_id = int(class_id)
-                    
-                    if self.label_map:
-                        if class_id not in self.label_map:
-                            raise ValueError(f"Found label {class_id} not in label_map")
-                        mapped = self.label_map[class_id]
-                    else:
-                        mapped = class_id
-                    
-                    self.data.append((img_path, mapped))
+                    self.data.append((img_path, int(class_id)))
         
         # Load species pair information
         self.classes_with_pairs = set()
@@ -55,23 +41,11 @@ class ImprovedPlantDataset(Dataset):
         
         if class_with_pairs_file and os.path.exists(class_with_pairs_file):
             with open(class_with_pairs_file, 'r') as f:
-                raw_ids = [int(line.strip()) for line in f if line.strip()]
-                self.classes_with_pairs = set(
-                    [self.label_map[id_] for id_ in raw_ids if not self.label_map or id_ in self.label_map]
-                )
-                skipped = len([id_ for id_ in raw_ids if self.label_map and id_ not in self.label_map])
-                if skipped > 0:
-                    print(f"   Warning: skipped {skipped} ids from {class_with_pairs_file} (not in label_map)")
+                self.classes_with_pairs = set([int(line.strip()) for line in f if line.strip()])
         
         if class_without_pairs_file and os.path.exists(class_without_pairs_file):
             with open(class_without_pairs_file, 'r') as f:
-                raw_ids = [int(line.strip()) for line in f if line.strip()]
-                self.classes_without_pairs = set(
-                    [self.label_map[id_] for id_ in raw_ids if not self.label_map or id_ in self.label_map]
-                )
-                skipped = len([id_ for id_ in raw_ids if self.label_map and id_ not in self.label_map])
-                if skipped > 0:
-                    print(f"   Warning: skipped {skipped} ids from {class_without_pairs_file} (not in label_map)")
+                self.classes_without_pairs = set([int(line.strip()) for line in f if line.strip()])
         
         print(f"Loaded {len(self.data)} images")
         self._print_statistics()
@@ -125,16 +99,12 @@ class ImprovedPlantDataset(Dataset):
     
     def __getitem__(self, idx):
         img_path, class_id = self.data[idx]
-        # Support absolute paths in the list; otherwise join to root_dir
-        img_path_obj = Path(img_path)
-        full_path = img_path_obj if img_path_obj.is_absolute() else (self.root_dir / img_path_obj)
+        full_path = os.path.join(self.root_dir, img_path)
         
         try:
             if self.use_albumentations:
                 # Use Albumentations (more powerful)
-                image = cv2.imread(str(full_path))
-                if image is None:
-                    raise FileNotFoundError(f"Missing or unreadable image: {full_path}")
+                image = cv2.imread(full_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 
                 if self.transform:
@@ -227,22 +197,6 @@ def get_improved_transforms(img_size=224, is_training=True, use_albumentations=F
             ])
 
 
-def _load_labels(annotation_file):
-    """Load all class labels from an annotation file."""
-    labels = []
-    if not os.path.exists(annotation_file):
-        return labels
-    with open(annotation_file, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) == 2:
-                try:
-                    labels.append(int(parts[1]))
-                except ValueError:
-                    continue
-    return labels
-
-
 def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size=224,
                                 use_albumentations=False):
     """
@@ -271,17 +225,6 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
         print(f"Test annotation file not found: {test_annotation}")
         print(f"   Creating empty test dataset...")
     
-    # Build label mapping to contiguous indices (handles large species IDs)
-    train_labels = _load_labels(train_annotation)
-    test_labels = _load_labels(test_annotation)
-    all_labels = sorted(set(train_labels + test_labels))
-    if len(all_labels) == 0:
-        raise ValueError("No labels found in train/test annotation files.")
-    label_map = {label: idx for idx, label in enumerate(all_labels)}
-    print(f"\nLabel mapping:")
-    print(f"   Original ids: {min(all_labels)} - {max(all_labels)} ({len(all_labels)} unique)")
-    print(f"   Remapped ids: 0 - {len(all_labels)-1}")
-    
     # Get transforms
     train_transform = get_improved_transforms(img_size, is_training=True, use_albumentations=use_albumentations)
     test_transform = get_improved_transforms(img_size, is_training=False, use_albumentations=use_albumentations)
@@ -295,45 +238,42 @@ def create_improved_dataloaders(data_dir, batch_size=32, num_workers=4, img_size
     # Create datasets
     print("\nCreating Training Dataset...")
     train_dataset = ImprovedPlantDataset(
-        root_dir=data_dir,
+        root_dir=os.path.join(data_dir, 'train'),
         annotation_file=train_annotation,
         transform=train_transform,
         use_albumentations=use_albumentations,
         class_with_pairs_file=class_with_pairs,
-        class_without_pairs_file=class_without_pairs,
-        label_map=label_map
+        class_without_pairs_file=class_without_pairs
     )
     
     if len(train_dataset) == 0:
-        raise ValueError("Training dataset is empty! Cannot proceed.")
+        raise ValueError("❌ Training dataset is empty! Cannot proceed.")
     
     print("\nCreating Test Dataset...")
     if os.path.exists(test_annotation):
         test_dataset = ImprovedPlantDataset(
-            root_dir=data_dir,
+            root_dir=os.path.join(data_dir, 'test'),
             annotation_file=test_annotation,
             transform=test_transform,
             use_albumentations=use_albumentations,
             class_with_pairs_file=class_with_pairs,
-            class_without_pairs_file=class_without_pairs,
-            label_map=label_map
+            class_without_pairs_file=class_without_pairs
         )
     else:
         print("Test dataset file not found. Creating empty placeholder...")
         # Create an empty test dataset using a copy of train with no samples
         test_dataset = ImprovedPlantDataset(
-            root_dir=data_dir,
+            root_dir=os.path.join(data_dir, 'train'),
             annotation_file=train_annotation,
             transform=test_transform,
             use_albumentations=use_albumentations,
             class_with_pairs_file=class_with_pairs,
-            class_without_pairs_file=class_without_pairs,
-            label_map=label_map
+            class_without_pairs_file=class_without_pairs
         )
         test_dataset.data = []  # Empty it
     
     # Get number of classes
-    num_classes = len(label_map)
+    num_classes = len(set([class_id for _, class_id in train_dataset.data]))
     print(f"\nTotal classes: {num_classes}")
     
     # Create dataloaders

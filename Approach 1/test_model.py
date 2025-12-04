@@ -7,36 +7,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
 from pathlib import Path
-import os
 
 from baseline1_model import create_improved_model
 from baseline1_dataloader import create_improved_dataloaders
-
-
-def resolve_data_dir(preferred_dir: str | None = None) -> Path:
-    """
-    Resolve the dataset root in a cross-platform way.
-    - If a path is provided, use it (relative paths are resolved from CWD)
-    - Else use AML_DATA_ROOT when set
-    - Else fall back to repo-local AML_project_herbarium_dataset
-    """
-    if preferred_dir and preferred_dir != '.':
-        candidate = Path(preferred_dir).expanduser()
-        return candidate if candidate.is_absolute() else (Path.cwd() / candidate).resolve()
-
-    env_root = os.environ.get('AML_DATA_ROOT')
-    if env_root:
-        env_path = Path(env_root).expanduser()
-        if env_path.exists():
-            return env_path.resolve()
-        print(f"WARNING: AML_DATA_ROOT is set but not found: {env_root}")
-
-    repo_root = Path(__file__).resolve().parents[1]
-    default_root = repo_root / 'AML_project_herbarium_dataset'
-    if default_root.exists():
-        return default_root.resolve()
-
-    return Path(preferred_dir or '.').resolve()
 
 
 class ModelTester:
@@ -359,15 +332,15 @@ class ModelTester:
         with open(save_path, 'w') as f:
             json.dump(serializable_results, f, indent=2)
         
-        print(f"Results saved to JSON: {save_path}")
+        print(f"✅ Results saved to JSON: {save_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(description='Test trained model with comprehensive metrics')
     parser.add_argument('--checkpoint', type=str, default='baseline1_optimized_best.pth',
                        help='Path to model checkpoint')
-    parser.add_argument('--data_dir', type=str, default=None,
-                       help='Data directory (defaults to AML_DATA_ROOT or the repo dataset)')
+    parser.add_argument('--data_dir', type=str, default='.',
+                       help='Data directory')
     parser.add_argument('--batch_size', type=int, default=32,
                        help='Batch size for testing')
     parser.add_argument('--img_size', type=int, default=320,
@@ -383,9 +356,6 @@ def main():
     print("MODEL TESTING - Comprehensive Evaluation")
     print("="*80)
     
-    data_dir = resolve_data_dir(args.data_dir)
-    print(f"\nData directory resolved to: {data_dir}")
-    
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\nDevice: {device}")
@@ -395,7 +365,7 @@ def main():
     # Check checkpoint exists
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.exists():
-        print(f"\nError: Checkpoint not found: {args.checkpoint}")
+        print(f"\n❌ Error: Checkpoint not found: {args.checkpoint}")
         print(f"   Please provide a valid checkpoint path")
         return
     
@@ -424,7 +394,7 @@ def main():
     # Create dataloaders
     print(f"\nLoading test data...")
     _, test_loader, _, dataset_info = create_improved_dataloaders(
-        data_dir=str(data_dir),
+        data_dir=args.data_dir,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         img_size=args.img_size,
@@ -432,8 +402,8 @@ def main():
     )
     
     if test_loader is None or len(test_loader) == 0:
-        print(f"\nError: No test data found!")
-        print(f"   Please ensure test.txt exists in {data_dir}/list/")
+        print(f"\n❌ Error: No test data found!")
+        print(f"   Please ensure test.txt exists in {args.data_dir}/list/")
         return
     
     # Create model

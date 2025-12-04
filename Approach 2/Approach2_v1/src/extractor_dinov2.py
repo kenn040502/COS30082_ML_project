@@ -102,7 +102,7 @@ def _smart_load_checkpoint(p, map_location="cpu"):
         try:
             return torch.load(p, map_location=map_location, weights_only=True)
         except Exception:
-            # 3) final fallback - trusted source only
+            # 3) final fallback – trusted source only
             return torch.load(p, map_location=map_location, weights_only=False)
     else:
         # older torch without weights_only kw already failed at (1)
